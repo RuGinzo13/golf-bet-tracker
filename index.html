@@ -77,7 +77,7 @@ var storage={
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
-var loggedIn=false,profile=null,loginErr='',pinAttempts=3,loginView='auto';
+var loggedIn=false,profile=null,loginErr='';
 var TAB='setup',numP=2,nM='',ntT=null;
 var showNewP=[false,false,false,false];
 var editingRoundId=null;
@@ -200,7 +200,6 @@ function NET(){
 function pn(i){return((P[i]&&P[i].name)||'').trim()||'P'+(i+1);}
 function sC(d){return d<=-2?'#f5a030':d===-1?'#ff3030':d===0?'#60e030':d===1?'#30aaff':'#c060ff';}
 function fm(v){v=Math.round(v);return v===0?'$0':(v>0?'+':'-')+'$'+Math.abs(v);}
-function hpHash(p){var h=0;for(var i=0;i<p.length;i++)h=((h<<5)-h+p.charCodeAt(i))|0;return h.toString(36);}
 function nassauStrokes(p1i,p2i){
   if(!P[p1i]||!P[p2i])return'';
   var mh=minH(),s1=Math.max(0,P[p1i].hcp-mh),s2=Math.max(0,P[p2i].hcp-mh);
@@ -501,55 +500,30 @@ function ensureProfileInRoster(){
   // Auto-select profile user as P1 if not already set
   if(!P[0].name){P[0].name=profile.name;P[0].hcp=profile.hcp||10;}
 }
-function doLogin(){
-  var lp=document.getElementById('lp');
-  if(!lp)return;var pin=lp.value.trim();
-  if(!pin){loginErr='Enter your PIN.';render();return;}
-  if(profile&&hpHash(pin)===profile.pinHash){loggedIn=true;loginErr='';pinAttempts=3;ensureProfileInRoster();render();}
-  else{pinAttempts--;loginErr=pinAttempts>0?'Wrong PIN. '+pinAttempts+' left.':'Locked 30s.';if(pinAttempts<=0)setTimeout(function(){pinAttempts=3;loginErr='';render();},30000);render();}
-}
-function doDemo(){profile={name:'Demo',pinHash:'demo',hcp:10};loggedIn=true;loginErr='';render();}
-function doReset(){if(confirm('Reset profile? Rounds and golfer names are kept.'))storage.del('prof').then(function(){profile=null;loggedIn=false;loginView='auto';render();});}
+function doDemo(){profile={name:'Demo',hcp:10};loggedIn=true;loginErr='';render();}
+function doReset(){if(confirm('Reset profile? Rounds and golfer names are kept.'))storage.del('prof').then(function(){profile=null;loggedIn=false;render();});}
 
 // ── Login render ──────────────────────────────────────────────────────────────
 function rLogin(){
-  var showCreate=!profile||loginView==='create';
   var h='<div style="background:#001208;min-height:100vh;padding:20px">';
   h+='<div style="text-align:center;padding:28px 0 18px"><div style="font-size:24px;color:#f0bf30;letter-spacing:3px;font-weight:500">⛳ GOLF BET TRACKER</div></div>';
   h+='<div class="lc">';
-  if(showCreate){
-    h+='<div style="color:#f0bf30;font-weight:700;letter-spacing:2px;font-size:13px;margin-bottom:8px">CREATE PROFILE</div>';
-    h+='<div style="color:#7acc90;font-size:12px;line-height:1.7;margin-bottom:18px;padding:10px 12px;background:rgba(122,204,144,.07);border:1px solid rgba(122,204,144,.18);border-radius:5px">Create a profile to save your golfer roster and round history. Your name is auto-added to the player list each round.</div>';
-    h+='<div style="margin-bottom:12px"><div class="lbl">Your Name</div><input id="cn" class="bi" placeholder="e.g. John Smith" autocomplete="off"></div>';
-    h+='<div style="margin-bottom:12px"><div class="lbl">Your Handicap Index</div><input id="chcp" type="number" min="0" max="54" class="bi" style="letter-spacing:2px" placeholder="e.g. 12"></div>';
-    h+='<div style="margin-bottom:12px"><div class="lbl">4-Digit PIN</div><input id="cp1" type="password" maxlength="4" inputmode="numeric" class="bi" style="text-align:center;letter-spacing:10px;font-size:20px" placeholder="••••" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')"></div>';
-    h+='<div style="margin-bottom:6px"><div class="lbl">Confirm PIN</div><input id="cp2" type="password" maxlength="4" inputmode="numeric" class="bi" style="text-align:center;letter-spacing:10px;font-size:20px" placeholder="••••" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')"></div>';
-    if(loginErr)h+='<div class="ferr">⚠ '+loginErr+'</div>';
-    h+='<button class="btn gold" style="width:100%;padding:13px;font-size:14px;margin-top:10px;margin-bottom:10px" onclick="doCreate2()">Create Profile</button>';
-    if(profile)h+='<button class="btn" style="width:100%;padding:8px;font-size:11px;margin-bottom:8px" onclick="loginView=\'pin\';loginErr=\'\';render()">← Back</button>';
-    h+='<button class="btn" style="width:100%;padding:8px;font-size:11px;color:#4a7050;border-color:#1a4028" onclick="doDemo()">⚡ Demo Mode</button>';
-  }else{
-    h+='<div style="color:#7acc90;font-size:12px;margin-bottom:4px">Welcome back,</div>';
-    h+='<div style="color:#f0bf30;font-size:22px;font-weight:700;margin-bottom:20px">'+profile.name+'</div>';
-    h+='<div style="margin-bottom:6px"><div class="lbl">Enter PIN</div>';
-    h+='<input id="lp" type="password" maxlength="4" inputmode="numeric" class="bi" style="text-align:center;letter-spacing:10px;font-size:20px" placeholder="••••" oninput="this.value=this.value.replace(/[^0-9]/g,\'\').slice(0,4);if(this.value.length===4)doLogin();">';
-    h+='</div>';
-    if(loginErr)h+='<div class="ferr">⚠ '+loginErr+'</div>';
-    h+='<button class="btn gold" style="width:100%;padding:13px;font-size:14px;margin-top:8px;margin-bottom:10px" onclick="doLogin()">Enter</button>';
-    h+='<div style="display:flex;gap:8px"><button class="btn" style="flex:1;padding:8px;font-size:10px" onclick="loginView=\'create\';loginErr=\'\';render()">New Profile</button><button class="btn" style="flex:1;padding:8px;font-size:10px;color:#4a7050" onclick="doReset()">Reset PIN</button></div>';
-    h+='<button class="btn" style="width:100%;padding:8px;font-size:11px;margin-top:8px;color:#3a6040;border-color:#143220" onclick="doDemo()">⚡ Demo Mode</button>';
-  }
+  h+='<div style="color:#f0bf30;font-weight:700;letter-spacing:2px;font-size:13px;margin-bottom:8px">CREATE PROFILE</div>';
+  h+='<div style="color:#7acc90;font-size:12px;line-height:1.7;margin-bottom:18px;padding:10px 12px;background:rgba(122,204,144,.07);border:1px solid rgba(122,204,144,.18);border-radius:5px">Your profile saves your name, handicap, golfer roster, and round history — all stored privately on this device.</div>';
+  h+='<div style="margin-bottom:12px"><div class="lbl">Your Name</div><input id="cn" class="bi" placeholder="e.g. John Smith" autocomplete="off"></div>';
+  h+='<div style="margin-bottom:16px"><div class="lbl">Handicap Index</div><input id="chcp" type="number" min="0" max="54" class="bi" style="letter-spacing:2px" placeholder="e.g. 12"></div>';
+  if(loginErr)h+='<div class="ferr">⚠ '+loginErr+'</div>';
+  h+='<button class="btn gold" style="width:100%;padding:13px;font-size:14px;margin-bottom:10px" onclick="doCreate2()">Let\'s Go</button>';
+  h+='<button class="btn" style="width:100%;padding:8px;font-size:11px;color:#4a7050;border-color:#1a4028" onclick="doDemo()">⚡ Demo Mode</button>';
   h+='</div></div>';
   return h;
 }
 function doCreate2(){
-  var nm=document.getElementById('cn'),hcpEl=document.getElementById('chcp'),p1=document.getElementById('cp1'),p2=document.getElementById('cp2');
-  if(!nm||!p1||!p2){loginErr='Form error.';render();return;}
-  var name=nm.value.trim(),hcp=parseInt(hcpEl?hcpEl.value:10)||10,pin1=p1.value.trim(),pin2=p2.value.trim();
+  var nm=document.getElementById('cn'),hcpEl=document.getElementById('chcp');
+  if(!nm){loginErr='Form error.';render();return;}
+  var name=nm.value.trim(),hcp=parseInt(hcpEl?hcpEl.value:10)||10;
   if(!name){loginErr='Please enter your name.';render();return;}
-  if(!/^\d{4}$/.test(pin1)){loginErr='PIN must be exactly 4 digits.';render();return;}
-  if(pin1!==pin2){loginErr="PINs don't match.";render();return;}
-  var pr={name:name,pinHash:hpHash(pin1),hcp:hcp};
+  var pr={name:name,hcp:hcp};
   storage.set('prof',JSON.stringify(pr)).then(function(result){
     if(result){profile=pr;loggedIn=true;loginErr='';ensureProfileInRoster();render();}
     else{loginErr='Storage failed — check browser settings.';render();}
@@ -1152,7 +1126,7 @@ function render(){
   var ntf=document.getElementById('ntf');if(ntf&&nM){ntf.textContent=nM;ntf.className='ntf on';}
 }
 
-ldAll().then(function(){loginView=profile?'pin':'create';render();});
+ldAll().then(function(){if(profile)loggedIn=true;render();});
 </script>
 </body>
 </html>
