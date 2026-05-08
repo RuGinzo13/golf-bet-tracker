@@ -333,11 +333,12 @@ function s531Calc(){
 }
 function p3cCalc(){
   if(!BT.p3c.on)return null;
-  var a=ais(),net=NET(),r={};a.forEach(function(i){r[i]=0;});
+  var a=ais(),r={};a.forEach(function(i){r[i]=0;});
   C.forEach(function(hole,hi){
     if(hole.par!==3)return;var cp=P3C[hi].cp,tp=P3C[hi].tp;
-    if(cp==null||!P[cp]||!P[cp].on||net[cp][hi]==null)return;
-    var diff=net[cp][hi]-hole.par,others=a.filter(function(i){return i!==cp;}),n=others.length;
+    if(cp==null||!P[cp]||!P[cp].on)return;
+    var g=parseInt(GR[cp][hi]);if(isNaN(g))return;
+    var diff=g-hole.par,others=a.filter(function(i){return i!==cp;}),n=others.length;
     if(diff<=-1){var a2=+BT.p3c.birdie;r[cp]+=a2*n;others.forEach(function(i){r[i]-=a2;});}
     else if(diff===0){var b2=+BT.p3c.par;r[cp]+=b2*n;others.forEach(function(i){r[i]-=b2;});}
     else if(diff>=1&&tp){var c2=+BT.p3c.bogey;r[cp]-=c2*n;others.forEach(function(i){r[i]+=c2;});}
@@ -835,16 +836,15 @@ function rExtras(){
     h+='</tbody></table></div></div>';
   }
   if(BT.p3c.on){
-    var net=NET();
     h+='<div class="card"><div class="ct">Par 3 Clock</div>';
     h+='<div style="font-size:10px;color:#4a7050;margin-bottom:12px">Select who is closest to the pin (ball on the green) = on the clock.</div>';
     C.forEach(function(hole,hi){
-      if(hole.par!==3)return;var pc=P3C[hi],nv=pc.cp!=null?net[pc.cp][hi]:null,diff=nv!=null?nv-hole.par:null;
+      if(hole.par!==3)return;var pc=P3C[hi],g=pc.cp!=null?parseInt(GR[pc.cp][hi]):NaN,diff=!isNaN(g)?g-hole.par:null;
       var rs=diff!=null?(diff<=-1?'<span style="color:#ff3030">birdie+ ✓</span>':diff===0?'<span style="color:#60e030">par ✓</span>':'<span style="color:#30aaff">over par</span>'):'';
       h+='<div class="mu"><div style="font-weight:700;color:#c9991e;margin-bottom:8px">Hole '+hole.n+'</div><div class="row" style="margin-bottom:0"><div><div class="lbl">On the Clock</div><select style="width:140px" onchange="setP3Cp('+hi+',+this.value)"><option value="-1"'+(pc.cp==null?' selected':'')+'">— nobody —</option>';
       a.forEach(function(i){h+='<option value="'+i+'"'+(pc.cp===i?' selected':'')+'>'+pn(i)+'</option>';});
       h+='</select></div>';
-      if(pc.cp!=null){h+='<div style="padding-bottom:7px"><label style="font-size:11px;color:#7acc90;cursor:pointer"><input type="checkbox"'+(pc.tp?' checked':'')+' onchange="setP3Ctp('+hi+',this.checked)" style="margin-right:5px">3-putt bogey?</label></div>';if(nv!=null)h+='<div style="font-size:11px;color:#c9991e;padding-bottom:6px">Net: '+nv+' ('+rs+')</div>';}
+      if(pc.cp!=null){h+='<div style="padding-bottom:7px"><label style="font-size:11px;color:#7acc90;cursor:pointer"><input type="checkbox"'+(pc.tp?' checked':'')+' onchange="setP3Ctp('+hi+',this.checked)" style="margin-right:5px">3-putt bogey?</label></div>';if(!isNaN(g))h+='<div style="font-size:11px;color:#c9991e;padding-bottom:6px">Gross: '+g+' ('+rs+')</div>';}
       h+='</div></div>';
     });
     h+='</div>';
@@ -1118,10 +1118,16 @@ function addPly(pi){var nm=document.getElementById('nnm'+pi),nh=document.getElem
 function scTab(e,inp){
   if(e.key!=='Tab')return;
   e.preventDefault();
-  var pi=inp.getAttribute('data-pi');
-  var nhi=+inp.getAttribute('data-hi')+1;
-  if(nhi>=18)nhi=0;
-  var nx=document.querySelector('.scinp[data-pi="'+pi+'"][data-hi="'+nhi+'"]');
+  var a=ais(),backward=e.shiftKey;
+  var pi=+inp.getAttribute('data-pi'),hi=+inp.getAttribute('data-hi');
+  var nx;
+  if(backward){
+    if(hi>0){nx=document.querySelector('.scinp[data-pi="'+pi+'"][data-hi="'+(hi-1)+'"]');}
+    else{var ai=a.indexOf(pi);var pp=a[(ai-1+a.length)%a.length];nx=document.querySelector('.scinp[data-pi="'+pp+'"][data-hi="17"]');}
+  }else{
+    if(hi<17){nx=document.querySelector('.scinp[data-pi="'+pi+'"][data-hi="'+(hi+1)+'"]');}
+    else{var ai=a.indexOf(pi);var np=a[(ai+1)%a.length];nx=document.querySelector('.scinp[data-pi="'+np+'"][data-hi="0"]');}
+  }
   if(nx){nx.focus();nx.select();}
 }
 
