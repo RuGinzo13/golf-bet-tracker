@@ -284,12 +284,39 @@ function wolfCalc(){
   });
   return r;
 }
+function init666Segs(){
+  var a=ais();if(a.length!==4)return;
+  BT.s666.segs=[{t1:[a[0],a[1]],t2:[a[2],a[3]]},{t1:[a[0],a[2]],t2:[a[1],a[3]]},{t1:[a[0],a[3]],t2:[a[1],a[2]]}];
+}
+function ensure666Segs(){
+  var a=ais();if(a.length!==4)return;
+  var segs=BT.s666.segs;
+  if(!segs||segs.length!==3){init666Segs();return;}
+  var flat=[];segs.forEach(function(s){flat=flat.concat(s.t1,s.t2);});
+  if(!flat.every(function(pi){return a.indexOf(pi)!==-1;}))init666Segs();
+}
+function set666Team(si,slot,pi){
+  ensure666Segs();
+  var a=ais(),seg=BT.s666.segs[si],t1=seg.t1.slice();
+  t1[slot]=pi;
+  if(t1[0]===t1[1])t1[1-slot]=a.filter(function(p){return p!==pi;})[0];
+  seg.t1=t1;
+  seg.t2=a.filter(function(p){return t1.indexOf(p)===-1;});
+  render();
+}
 function s666Calc(){
   var a=ais();if(!BT.s666.on||a.length!==4)return null;
+  ensure666Segs();
   var sk=+BT.s666.stake,net=NET(),r={};a.forEach(function(i){r[i]=0;});
-  [[[a[0],a[1]],[a[2],a[3]]],[[a[0],a[2]],[a[1],a[3]]],[[a[0],a[3]],[a[1],a[2]]]].forEach(function(tm,si){
-    var hw=[0,0];for(var h=si*6;h<(si+1)*6;h++){if(tm[0].concat(tm[1]).some(function(p){return net[p][h]==null;}))continue;var t0=net[tm[0][0]][h]+net[tm[0][1]][h],t1=net[tm[1][0]][h]+net[tm[1][1]][h];if(t0<t1)hw[0]++;else if(t1<t0)hw[1]++;}
-    if(hw[0]>hw[1]){tm[0].forEach(function(p){r[p]+=sk;});tm[1].forEach(function(p){r[p]-=sk;});}else if(hw[1]>hw[0]){tm[1].forEach(function(p){r[p]+=sk;});tm[0].forEach(function(p){r[p]-=sk;});}
+  BT.s666.segs.forEach(function(seg,si){
+    var t1=seg.t1,t2=seg.t2,hw=[0,0];
+    for(var h=si*6;h<(si+1)*6;h++){
+      if(t1.concat(t2).some(function(p){return net[p][h]==null;}))continue;
+      var s1=net[t1[0]][h]+net[t1[1]][h],s2=net[t2[0]][h]+net[t2[1]][h];
+      if(s1<s2)hw[0]++;else if(s2<s1)hw[1]++;
+    }
+    if(hw[0]>hw[1]){t1.forEach(function(p){r[p]+=sk;});t2.forEach(function(p){r[p]-=sk;});}
+    else if(hw[1]>hw[0]){t2.forEach(function(p){r[p]+=sk;});t1.forEach(function(p){r[p]-=sk;});}
   });
   return r;
 }
@@ -616,8 +643,30 @@ function rSetup(){
   h+='<div class="card"><div class="ct">6/6/6'+(ais().length!==4?' <span style="font-size:9px;color:#c04020">⚠ 4 players req.</span>':'')+'<button class="tog '+(BT.s666.on?'on':'off')+'" onclick="togBet(\'s666\')">'+(BT.s666.on?'ON':'OFF')+'</button></div>';
   if(BT.s666.on){
     h+='<div class="row"><div><div class="lbl">$ / Segment Win</div><input type="number" min="0" style="width:78px" value="'+BT.s666.stake+'" onchange="BT.s666.stake=+this.value"></div></div>';
-    var a2=ais();if(a2.length===4)[[pn(a2[0])+'&amp;'+pn(a2[1])+' vs '+pn(a2[2])+'&amp;'+pn(a2[3]),'H1–6'],[pn(a2[0])+'&amp;'+pn(a2[2])+' vs '+pn(a2[1])+'&amp;'+pn(a2[3]),'H7–12'],[pn(a2[0])+'&amp;'+pn(a2[3])+' vs '+pn(a2[1])+'&amp;'+pn(a2[2]),'H13–18']].forEach(function(s){h+='<div class="seg"><span style="color:#4a7050;margin-right:8px">'+s[1]+'</span>'+s[0]+'</div>';});
-    h+='<div class="info">Combined net score per hole. Low team total wins hole. Most holes wins segment.</div>';
+    var a2=ais();
+    if(a2.length===4){
+      ensure666Segs();
+      ['H1–6','H7–12','H13–18'].forEach(function(lbl,si){
+        var seg=BT.s666.segs[si],t1=seg.t1,t2=seg.t2;
+        h+='<div class="mu" style="margin-bottom:7px">';
+        h+='<div style="font-size:9px;font-weight:700;color:#c9991e;letter-spacing:1px;margin-bottom:7px">'+lbl+'</div>';
+        h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+        // Team 1 picker — two dropdowns
+        [0,1].forEach(function(slot){
+          h+='<select style="width:96px" onchange="set666Team('+si+','+slot+',+this.value)">';
+          a2.forEach(function(pi){h+='<option value="'+pi+'"'+(t1[slot]===pi?' selected':'')+'>'+pn(pi)+'</option>';});
+          h+='</select>';
+          if(slot===0)h+='<span style="color:#4a7050;font-size:10px">&amp;</span>';
+        });
+        h+='<span style="color:#4a7050;font-size:10px;margin:0 4px">vs</span>';
+        // Team 2 auto-display
+        h+='<span style="color:#88c898;font-size:11px">'+pn(t2[0])+'</span>';
+        h+='<span style="color:#4a7050;font-size:10px">&amp;</span>';
+        h+='<span style="color:#88c898;font-size:11px">'+pn(t2[1])+'</span>';
+        h+='</div></div>';
+      });
+    }
+    h+='<div class="info">Combined net score per hole · low team total wins hole · most holes wins segment.</div>';
   }
   h+='</div>';
 
@@ -922,11 +971,15 @@ function rResults(){
   var W=wolfCalc(); if(W)mkCard('Wolf',W);
   var S6=s666Calc();
   if(S6){
-    var a3=ais(),net4=NET(),ex6='';
-    [[[a3[0],a3[1]],[a3[2],a3[3]],'H1-6',0],[[a3[0],a3[2]],[a3[1],a3[3]],'H7-12',6],[[a3[0],a3[3]],[a3[1],a3[2]],'H13-18',12]].forEach(function(tm){
-      var hw=[0,0];
-      for(var hh=tm[3];hh<tm[3]+6;hh++){if(tm[0].concat(tm[1]).some(function(p){return net4[p][hh]==null;}))continue;var t0=net4[tm[0][0]][hh]+net4[tm[0][1]][hh],t1=net4[tm[1][0]][hh]+net4[tm[1][1]][hh];if(t0<t1)hw[0]++;else if(t1<t0)hw[1]++;}
-      ex6+='<div style="font-size:9px;color:#a0c8a8;line-height:1.7"><span style="color:#4a7050">'+tm[2]+'</span> '+pn(tm[0][0])+'&amp;'+pn(tm[0][1])+' <span style="color:#c9991e;font-weight:700">'+hw[0]+'-'+hw[1]+'</span> '+pn(tm[1][0])+'&amp;'+pn(tm[1][1])+'</div>';
+    var net4=NET(),ex6='';
+    ['H1-6','H7-12','H13-18'].forEach(function(lbl,si){
+      var seg=BT.s666.segs[si],t1=seg.t1,t2=seg.t2,hw=[0,0];
+      for(var hh=si*6;hh<si*6+6;hh++){
+        if(t1.concat(t2).some(function(p){return net4[p][hh]==null;}))continue;
+        var s1=net4[t1[0]][hh]+net4[t1[1]][hh],s2=net4[t2[0]][hh]+net4[t2[1]][hh];
+        if(s1<s2)hw[0]++;else if(s2<s1)hw[1]++;
+      }
+      ex6+='<div style="font-size:9px;color:#a0c8a8;line-height:1.7"><span style="color:#4a7050">'+lbl+'</span> '+pn(t1[0])+'&amp;'+pn(t1[1])+' <span style="color:#c9991e;font-weight:700">'+hw[0]+'-'+hw[1]+'</span> '+pn(t2[0])+'&amp;'+pn(t2[1])+'</div>';
     });
     mkCard('6/6/6',S6,ex6);
   }
