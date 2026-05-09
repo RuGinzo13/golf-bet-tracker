@@ -1106,21 +1106,63 @@ function rResults(){
     }else{h+='<div style="color:#4a7050;font-size:12px;text-align:center;padding:8px">✓ Bets all square.</div>';}
     h+='</div>';
 
-    // Fee breakdown summary
-    h+='<div class="card" style="margin-bottom:10px;border-color:rgba(100,130,80,.3)">';
-    h+='<div class="ct" style="margin-bottom:8px">Fee Breakdown</div>';
-    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:7px">';
-    ais().forEach(function(i){
-      var v=_ft[i]||0;
-      if(v===0)return;
-      h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:6px;';
-      h+='background:'+(v>0?'rgba(48,248,88,.05)':v<0?'rgba(255,90,90,.05)':'rgba(255,255,255,.02)')+';';
-      h+='border:1px solid '+(v>0?'rgba(48,248,88,.18)':v<0?'rgba(255,90,90,.18)':'rgba(255,255,255,.05)')+';">';
-      h+='<span style="font-weight:700;color:#f5edd5;font-size:12px">'+pn(i)+'</span>';
-      h+='<span style="font-size:16px;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</span>';
-      h+='</div>';
-    });
-    h+='</div></div>';
+    // Fee breakdown summary — one row per fee, one column per player
+    var _feeRows=[];
+    (function(){
+      var _paying=ais().filter(function(i){return _excl.indexOf(i)<0;});
+      [[RF.roundPayer,_rAmt,'Round Cost'],[RF.bookPayer,_bAmt,'Booking Fee']].forEach(function(def){
+        var payer=def[0],amt=def[1],label=def[2];
+        if(payer==null||amt<=0)return;
+        if(_paying.indexOf(payer)<0)return;
+        var share=amt/_paying.length;
+        var row={label:label,amt:amt,vals:{}};
+        ais().forEach(function(i){
+          if(_excl.indexOf(i)>=0){row.vals[i]=null;}          // excluded — gifted
+          else if(i===payer){row.vals[i]=amt-share;}           // payer credit
+          else{row.vals[i]=-share;}                            // everyone else owes
+        });
+        _feeRows.push(row);
+      });
+    })();
+    if(_feeRows.length){
+      var _ai=ais();
+      h+='<div class="card" style="margin-bottom:10px;border-color:rgba(100,130,80,.3)">';
+      h+='<div class="ct" style="margin-bottom:10px">Fee Breakdown</div>';
+      h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:12px">';
+      // Header row: player names
+      h+='<thead><tr style="border-bottom:1px solid #1a4028">';
+      h+='<th style="text-align:left;padding:6px 10px;color:#4a7050;font-size:10px;font-weight:600;white-space:nowrap">Fee</th>';
+      h+='<th style="text-align:center;padding:6px 8px;color:#4a7050;font-size:10px;font-weight:600;white-space:nowrap">Total</th>';
+      _ai.forEach(function(i){h+='<th style="text-align:center;padding:6px 8px;color:#c9991e;font-weight:700;white-space:nowrap">'+pn(i)+'</th>';});
+      h+='</tr></thead><tbody>';
+      _feeRows.forEach(function(row){
+        h+='<tr style="border-bottom:1px solid rgba(255,255,255,.04)">';
+        h+='<td style="padding:8px 10px;color:#7acc90;font-weight:600;white-space:nowrap">'+row.label+'</td>';
+        h+='<td style="padding:8px;text-align:center;color:#f5edd5;font-weight:700">$'+row.amt.toFixed(2)+'</td>';
+        _ai.forEach(function(i){
+          var v=row.vals[i];
+          if(v===null){
+            h+='<td style="padding:8px;text-align:center;color:#2a5030;font-size:10px">gifted</td>';
+          }else{
+            h+='<td style="padding:8px;text-align:center;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</td>';
+          }
+        });
+        h+='</tr>';
+      });
+      // Total row if more than one fee
+      if(_feeRows.length>1){
+        h+='<tr style="border-top:1px solid #1a4028">';
+        h+='<td style="padding:8px 10px;color:#c9991e;font-weight:700">Total Fees</td>';
+        var _totAmt=_feeRows.reduce(function(s,r){return s+r.amt;},0);
+        h+='<td style="padding:8px;text-align:center;color:#c9991e;font-weight:700">$'+_totAmt.toFixed(2)+'</td>';
+        _ai.forEach(function(i){
+          var v=_ft[i]||0;
+          h+='<td style="padding:8px;text-align:center;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</td>';
+        });
+        h+='</tr>';
+      }
+      h+='</tbody></table></div></div>';
+    }
   }
 
   // ── Final Ledger (bets + fees) ────────────────────────────────────────────
