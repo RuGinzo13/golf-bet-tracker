@@ -363,22 +363,30 @@ function junkCalc(){
   });});
   return r;
 }
-function overall(){
+function betsTotal(){
   var a=ais(),t={};a.forEach(function(i){t[i]=0;});
   [nassauCalc(),matchCalc(),wolfCalc(),s666Calc(),s531Calc(),p3cCalc(),dotsCalc(),junkCalc()].forEach(function(res){if(res)a.forEach(function(i){t[i]+=(res[i]||0);});});
-  // Round fees & booking fees
+  return t;
+}
+function feesTotal(){
+  var a=ais(),t={};a.forEach(function(i){t[i]=0;});
   var excl=RF.feeExclude||[];
   var paying=a.filter(function(i){return excl.indexOf(i)<0;});
   [[RF.roundPayer,+(RF.roundAmt)||0],[RF.bookPayer,+(RF.bookAmt)||0]].forEach(function(fee){
     var payer=fee[0],amt=fee[1];
     if(payer==null||amt<=0||paying.length===0)return;
-    if(paying.indexOf(payer)<0)return; // payer is excluded — skip
+    if(paying.indexOf(payer)<0)return; // payer is excluded — gifted players don't pay
     var share=amt/paying.length;
     paying.forEach(function(i){
-      if(i===payer){t[i]+=amt-share;}  // payer recoups others' shares
-      else{t[i]-=share;}               // others owe their share
+      if(i===payer){t[i]+=amt-share;}  // payer recoups all others' shares
+      else{t[i]-=share;}               // each non-excluded player owes their share
     });
   });
+  return t;
+}
+function overall(){
+  var bt=betsTotal(),ft=feesTotal(),a=ais(),t={};
+  a.forEach(function(i){t[i]=(bt[i]||0)+(ft[i]||0);});
   return t;
 }
 function settleDebts(ov,a){
@@ -1018,68 +1026,113 @@ function rResults(){
   }
 
   // ── Round & Booking Fees ──────────────────────────────────────────────────
-  (function(){
-    function feePlayerSel(field,val){
-      var opts='<option value="-1"'+(val==null?' selected':'')+'>— nobody —</option>';
-      a.forEach(function(i){opts+='<option value="'+i+'"'+(val===i?' selected':'')+'>'+pn(i)+'</option>';});
-      return '<select style="width:130px;padding:4px 6px;border-radius:5px;background:#001a0e;border:1px solid #1a4028;color:#f5edd5;font-size:12px" onchange="RF.'+field+'=(+this.value===-1?null:+this.value);render()">'+opts+'</select>';
-    }
-    var excl=RF.feeExclude||[];
-    h+='<div class="card" style="margin-bottom:10px;border-color:rgba(100,160,120,.35)">';
-    h+='<div class="ct" style="margin-bottom:10px">Round Fees</div>';
-    h+='<div style="font-size:10px;color:#4a7050;margin-bottom:12px">Split round cost &amp; booking fee evenly among participating golfers. Excluded players are gifted their share.</div>';
+  var _excl=RF.feeExclude||[];
+  var _inpStyle='width:80px;padding:5px 8px;border-radius:5px;background:#001a0e;border:1px solid #1a4028;color:#f5edd5;font-size:13px;text-align:right';
+  var _selStyle='padding:5px 6px;border-radius:5px;background:#001a0e;border:1px solid #1a4028;color:#f5edd5;font-size:12px;min-width:120px';
+  function _feeSelHtml(field,val){
+    var o='<option value="-1"'+(val==null?' selected':'')+'>— nobody —</option>';
+    a.forEach(function(i){o+='<option value="'+i+'"'+(val===i?' selected':'')+'>'+pn(i)+'</option>';});
+    return '<select style="'+_selStyle+'" onchange="RF.'+field+'=(+this.value===-1?null:+this.value);render()">'+o+'</select>';
+  }
+  h+='<div class="card" style="margin-bottom:10px;border-color:rgba(100,160,120,.35)">';
+  h+='<div class="ct" style="margin-bottom:12px">Round Fees</div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin-bottom:14px">Enter who paid and how much. Each fee is split evenly among all golfers (excluding anyone gifted the round). Tab or click out of an amount field to apply.</div>';
 
-    // Row 1: Round cost
-    h+='<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
-    h+='<div style="font-size:11px;font-weight:700;color:#c9991e;min-width:90px">Round Cost</div>';
-    h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">Paid by</span>'+feePlayerSel('roundPayer',RF.roundPayer)+'</div>';
-    h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">Total $</span>';
-    h+='<input type="number" min="0" step="1" value="'+(RF.roundAmt||'')+'" placeholder="0" style="width:72px;padding:4px 6px;border-radius:5px;background:#001a0e;border:1px solid #1a4028;color:#f5edd5;font-size:12px;text-align:right" oninput="RF.roundAmt=+this.value;render()"></div>';
-    if(RF.roundPayer!=null&&+RF.roundAmt>0){
-      var rpaying=a.filter(function(i){return excl.indexOf(i)<0;});
-      if(rpaying.length>0){var rsh=+RF.roundAmt/rpaying.length;h+='<div style="font-size:10px;color:#4a7050">$'+rsh.toFixed(2)+'/player &times; '+rpaying.length+'</div>';}
-    }
+  // Round cost row
+  var _rp=a.filter(function(i){return _excl.indexOf(i)<0;});
+  var _rAmt=+(RF.roundAmt)||0, _bAmt=+(RF.bookAmt)||0;
+  h+='<div style="display:grid;grid-template-columns:auto 1fr 1fr auto;align-items:center;gap:10px 14px;margin-bottom:10px;padding:12px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
+  h+='<div style="font-size:11px;font-weight:700;color:#c9991e;white-space:nowrap">Round Cost</div>';
+  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90;white-space:nowrap">Paid by</span>'+_feeSelHtml('roundPayer',RF.roundPayer)+'</div>';
+  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">$</span>';
+  h+='<input type="number" min="0" step="1" value="'+(_rAmt||'')+'" placeholder="0.00" style="'+_inpStyle+'" onchange="RF.roundAmt=+this.value||0;render()"></div>';
+  h+=RF.roundPayer!=null&&_rAmt>0&&_rp.length>0?'<div style="font-size:10px;color:#4a7050;white-space:nowrap">$'+(_rAmt/_rp.length).toFixed(2)+'/ea &times;'+_rp.length+'</div>':'<div></div>';
+  h+='</div>';
+
+  // Booking fee row
+  h+='<div style="display:grid;grid-template-columns:auto 1fr 1fr auto;align-items:center;gap:10px 14px;margin-bottom:14px;padding:12px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
+  h+='<div style="font-size:11px;font-weight:700;color:#c9991e;white-space:nowrap">Booking Fee</div>';
+  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90;white-space:nowrap">Paid by</span>'+_feeSelHtml('bookPayer',RF.bookPayer)+'</div>';
+  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">$</span>';
+  h+='<input type="number" min="0" step="1" value="'+(_bAmt||'')+'" placeholder="0.00" style="'+_inpStyle+'" onchange="RF.bookAmt=+this.value||0;render()"></div>';
+  h+=RF.bookPayer!=null&&_bAmt>0&&_rp.length>0?'<div style="font-size:10px;color:#4a7050;white-space:nowrap">$'+(_bAmt/_rp.length).toFixed(2)+'/ea &times;'+_rp.length+'</div>':'<div></div>';
+  h+='</div>';
+
+  // Exclude from fees
+  if(a.length>1){
+    h+='<div style="padding:12px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
+    h+='<div style="font-size:11px;font-weight:700;color:#c9991e;margin-bottom:10px">Exclude from Fees <span style="font-size:9px;font-weight:400;color:#4a7050">(gifted the round — pays nothing)</span></div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:14px">';
+    a.forEach(function(i){
+      var chk=_excl.indexOf(i)>=0;
+      h+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:'+(chk?'#c9991e':'#b8d8c0')+';cursor:pointer;font-weight:'+(chk?'700':'400')+'">';
+      h+='<input type="checkbox"'+(chk?' checked':'')+' onchange="var ex=RF.feeExclude||[];var ix=ex.indexOf('+i+');if(this.checked){if(ix<0)ex.push('+i+');}else{if(ix>=0)ex.splice(ix,1);}RF.feeExclude=ex;render()" style="accent-color:#c9991e;width:15px;height:15px">';
+      h+=pn(i)+'</label>';
+    });
+    h+='</div></div>';
+  }
+  h+='</div>';
+
+  // ── Betting Ledger (bets only, no fees) — shown only when fees are set ────
+  var _hasFees=(_rAmt>0&&RF.roundPayer!=null)||(_bAmt>0&&RF.bookPayer!=null);
+  var _bt=betsTotal(), _ft=feesTotal(), _ov=overall();
+  if(_hasFees){
+    var _btTxns=settleDebts(_bt,ais());
+    h+='<div class="card" style="margin-bottom:10px;border-color:rgba(80,140,100,.4)">';
+    h+='<div class="ct" style="margin-bottom:8px">Betting Ledger <span style="font-size:9px;font-weight:400;color:#4a7050;letter-spacing:0">(bets only, before fees)</span></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:7px;margin-bottom:14px">';
+    ais().forEach(function(i){
+      var v=_bt[i]||0;
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 11px;border-radius:6px;';
+      h+='background:'+(v>0?'rgba(48,248,88,.06)':v<0?'rgba(255,90,90,.06)':'rgba(255,255,255,.02)')+';';
+      h+='border:1px solid '+(v>0?'rgba(48,248,88,.2)':v<0?'rgba(255,90,90,.2)':'rgba(255,255,255,.06)')+';">';
+      h+='<span style="font-weight:700;color:#f5edd5;font-size:12px">'+pn(i)+'</span>';
+      h+='<span style="font-size:17px;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</span>';
+      h+='</div>';
+    });
     h+='</div>';
-
-    // Row 2: Booking fee
-    h+='<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
-    h+='<div style="font-size:11px;font-weight:700;color:#c9991e;min-width:90px">Booking Fee</div>';
-    h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">Paid by</span>'+feePlayerSel('bookPayer',RF.bookPayer)+'</div>';
-    h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">Total $</span>';
-    h+='<input type="number" min="0" step="1" value="'+(RF.bookAmt||'')+'" placeholder="0" style="width:72px;padding:4px 6px;border-radius:5px;background:#001a0e;border:1px solid #1a4028;color:#f5edd5;font-size:12px;text-align:right" oninput="RF.bookAmt=+this.value;render()"></div>';
-    if(RF.bookPayer!=null&&+RF.bookAmt>0){
-      var bpaying=a.filter(function(i){return excl.indexOf(i)<0;});
-      if(bpaying.length>0){var bsh=+RF.bookAmt/bpaying.length;h+='<div style="font-size:10px;color:#4a7050">$'+bsh.toFixed(2)+'/player &times; '+bpaying.length+'</div>';}
-    }
-    h+='</div>';
-
-    // Row 3: Exclude from fees
-    if(a.length>1){
-      h+='<div style="padding:10px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
-      h+='<div style="font-size:11px;font-weight:700;color:#c9991e;margin-bottom:8px">Exclude from Fees <span style="font-size:9px;font-weight:400;color:#4a7050">(gifted the round)</span></div>';
-      h+='<div style="display:flex;flex-wrap:wrap;gap:10px">';
-      a.forEach(function(i){
-        var chk=excl.indexOf(i)>=0;
-        h+='<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#b8d8c0;cursor:pointer">';
-        h+='<input type="checkbox"'+(chk?' checked':'')+' onchange="var ex=RF.feeExclude||[];var idx=ex.indexOf('+i+');if(this.checked){if(idx<0)ex.push('+i+');}else{if(idx>=0)ex.splice(idx,1);}RF.feeExclude=ex;render()" style="accent-color:#c9991e;width:14px;height:14px">';
-        h+=pn(i)+'</label>';
+    if(_btTxns.length){
+      h+='<div style="border-top:1px solid #1a3820;padding-top:10px">';
+      _btTxns.forEach(function(t){
+        h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:5px;border-radius:6px;background:rgba(255,255,255,.02);border:1px solid #1a3820">';
+        h+='<span class="neg" style="font-size:13px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.fr)+'</span>';
+        h+='<span style="font-size:10px;color:#4a7050">owes</span>';
+        h+='<span style="font-size:18px;font-weight:700;color:#f0bf30;min-width:52px;text-align:center">$'+t.amt+'</span>';
+        h+='<span style="font-size:10px;color:#4a7050">to</span>';
+        h+='<span class="pos" style="font-size:13px;font-weight:700;flex:1;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.to)+'</span>';
+        h+='</div>';
       });
-      h+='</div></div>';
-    }
-
+      h+='</div>';
+    }else{h+='<div style="color:#4a7050;font-size:12px;text-align:center;padding:8px">✓ Bets all square.</div>';}
     h+='</div>';
-  })();
 
-  // ── Final Ledger ──────────────────────────────────────────────────────────
-  var ov=overall(),txns=settleDebts(ov,ais());
+    // Fee breakdown summary
+    h+='<div class="card" style="margin-bottom:10px;border-color:rgba(100,130,80,.3)">';
+    h+='<div class="ct" style="margin-bottom:8px">Fee Breakdown</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:7px">';
+    ais().forEach(function(i){
+      var v=_ft[i]||0;
+      if(v===0)return;
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:6px;';
+      h+='background:'+(v>0?'rgba(48,248,88,.05)':v<0?'rgba(255,90,90,.05)':'rgba(255,255,255,.02)')+';';
+      h+='border:1px solid '+(v>0?'rgba(48,248,88,.18)':v<0?'rgba(255,90,90,.18)':'rgba(255,255,255,.05)')+';">';
+      h+='<span style="font-weight:700;color:#f5edd5;font-size:12px">'+pn(i)+'</span>';
+      h+='<span style="font-size:16px;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</span>';
+      h+='</div>';
+    });
+    h+='</div></div>';
+  }
+
+  // ── Final Ledger (bets + fees) ────────────────────────────────────────────
+  var _txns=settleDebts(_ov,ais());
   h+='<div class="card" style="border-color:rgba(201,153,30,.5)">';
-  h+='<div class="ct" style="margin-bottom:10px">Final Ledger</div>';
+  h+='<div class="ct" style="margin-bottom:10px">Final Ledger'+(_hasFees?' <span style="font-size:9px;font-weight:400;color:#4a7050;letter-spacing:0">(bets + fees)</span>':'')+'</div>';
 
-  // Part 1: Net balance per player (grid)
+  // Net balance grid
   h+='<div style="font-size:9px;color:#4a7050;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Net Balance Per Player</div>';
   h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:7px;margin-bottom:16px">';
   ais().forEach(function(i){
-    var v=ov[i]||0;
+    var v=_ov[i]||0;
     h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 11px;border-radius:6px;';
     h+='background:'+(v>0?'rgba(48,248,88,.07)':v<0?'rgba(255,90,90,.07)':'rgba(255,255,255,.03)')+';';
     h+='border:1px solid '+(v>0?'rgba(48,248,88,.28)':v<0?'rgba(255,90,90,.28)':'rgba(255,255,255,.08)')+';">';
@@ -1089,11 +1142,11 @@ function rResults(){
   });
   h+='</div>';
 
-  // Part 2: Minimum transactions to settle
+  // Minimum transactions
   h+='<div style="border-top:1px solid #1a3820;padding-top:12px">';
   h+='<div style="font-size:9px;color:#4a7050;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">Minimum Transactions to Settle Up</div>';
-  if(txns.length){
-    txns.forEach(function(t){
+  if(_txns.length){
+    _txns.forEach(function(t){
       h+='<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;margin-bottom:6px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid #1a3820">';
       h+='<span class="neg" style="font-size:14px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.fr)+'</span>';
       h+='<span style="font-size:10px;color:#4a7050;white-space:nowrap">owes</span>';
