@@ -104,6 +104,7 @@ var WD=Array(18).fill(0).map(function(){return{dec:null};});
 var DT=Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){return{f:false,g:false};});});
 var JK=Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){return{gr:false,sa:false,ba:false,po:false};});});
 var P3C=Array(18).fill(0).map(function(){return{cp:null,tp:false};});
+var RF={roundPayer:null,roundAmt:0,bookPayer:null,bookAmt:0,feeExclude:[]};
 
 // ── Persistence ───────────────────────────────────────────────────────────────
 async function ldAll(){
@@ -114,7 +115,7 @@ async function ldAll(){
 async function svG(){try{await storage.set('sGolfers',JSON.stringify(sG));}catch(e){}}
 async function svRound(){
   var a=ais(),ov=overall();
-  var newState=JSON.parse(JSON.stringify({C:C,GR:GR,BT:BT,DT:DT,JK:JK,P3C:P3C,WD:WD,P:P,cN:cN,numP:numP}));
+  var newState=JSON.parse(JSON.stringify({C:C,GR:GR,BT:BT,DT:DT,JK:JK,P3C:P3C,WD:WD,P:P,cN:cN,numP:numP,RF:RF}));
   var results={};a.forEach(function(i){results[pn(i)]=Math.round(ov[i]||0);});
   if(editingRoundId){
     // Update existing round in-place
@@ -153,6 +154,7 @@ function loadRound(id){
   P3C=JSON.parse(JSON.stringify(s.P3C));
   WD=JSON.parse(JSON.stringify(s.WD));
   P=JSON.parse(JSON.stringify(s.P));
+  RF=s.RF?JSON.parse(JSON.stringify(s.RF)):{roundPayer:null,roundAmt:0,bookPayer:null,bookAmt:0,feeExclude:[]};
   cN=s.cN||'';numP=s.numP||2;
   showNewP=[false,false,false,false];
   editingRoundId=rd.id;
@@ -168,6 +170,7 @@ function newRound(){
   JK=Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){return{gr:false,sa:false,ba:false,po:false};});});
   P3C=Array(18).fill(0).map(function(){return{cp:null,tp:false};});
   WD=Array(18).fill(0).map(function(){return{dec:null};});
+  RF={roundPayer:null,roundAmt:0,bookPayer:null,bookAmt:0,feeExclude:[]};
   invalidateCalcCache();
   TAB='scores';
   render();
@@ -363,6 +366,19 @@ function junkCalc(){
 function overall(){
   var a=ais(),t={};a.forEach(function(i){t[i]=0;});
   [nassauCalc(),matchCalc(),wolfCalc(),s666Calc(),s531Calc(),p3cCalc(),dotsCalc(),junkCalc()].forEach(function(res){if(res)a.forEach(function(i){t[i]+=(res[i]||0);});});
+  // Round fees & booking fees
+  var excl=RF.feeExclude||[];
+  var paying=a.filter(function(i){return excl.indexOf(i)<0;});
+  [[RF.roundPayer,+(RF.roundAmt)||0],[RF.bookPayer,+(RF.bookAmt)||0]].forEach(function(fee){
+    var payer=fee[0],amt=fee[1];
+    if(payer==null||amt<=0||paying.length===0)return;
+    if(paying.indexOf(payer)<0)return; // payer is excluded — skip
+    var share=amt/paying.length;
+    paying.forEach(function(i){
+      if(i===payer){t[i]+=amt-share;}  // payer recoups others' shares
+      else{t[i]-=share;}               // others owe their share
+    });
+  });
   return t;
 }
 function settleDebts(ov,a){
@@ -1000,6 +1016,59 @@ function rResults(){
   }else{
     h+='<div class="card"><p style="color:#4a7050">Enable bets in Setup to see results.</p></div>';
   }
+
+  // ── Round & Booking Fees ──────────────────────────────────────────────────
+  (function(){
+    function feePlayerSel(field,val){
+      var opts='<option value="-1"'+(val==null?' selected':'')+'>— nobody —</option>';
+      a.forEach(function(i){opts+='<option value="'+i+'"'+(val===i?' selected':'')+'>'+pn(i)+'</option>';});
+      return '<select style="width:130px;padding:4px 6px;border-radius:5px;background:#001a0e;border:1px solid #1a4028;color:#f5edd5;font-size:12px" onchange="RF.'+field+'=(+this.value===-1?null:+this.value);render()">'+opts+'</select>';
+    }
+    var excl=RF.feeExclude||[];
+    h+='<div class="card" style="margin-bottom:10px;border-color:rgba(100,160,120,.35)">';
+    h+='<div class="ct" style="margin-bottom:10px">Round Fees</div>';
+    h+='<div style="font-size:10px;color:#4a7050;margin-bottom:12px">Split round cost &amp; booking fee evenly among participating golfers. Excluded players are gifted their share.</div>';
+
+    // Row 1: Round cost
+    h+='<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
+    h+='<div style="font-size:11px;font-weight:700;color:#c9991e;min-width:90px">Round Cost</div>';
+    h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">Paid by</span>'+feePlayerSel('roundPayer',RF.roundPayer)+'</div>';
+    h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">Total $</span>';
+    h+='<input type="number" min="0" step="1" value="'+(RF.roundAmt||'')+'" placeholder="0" style="width:72px;padding:4px 6px;border-radius:5px;background:#001a0e;border:1px solid #1a4028;color:#f5edd5;font-size:12px;text-align:right" oninput="RF.roundAmt=+this.value;render()"></div>';
+    if(RF.roundPayer!=null&&+RF.roundAmt>0){
+      var rpaying=a.filter(function(i){return excl.indexOf(i)<0;});
+      if(rpaying.length>0){var rsh=+RF.roundAmt/rpaying.length;h+='<div style="font-size:10px;color:#4a7050">$'+rsh.toFixed(2)+'/player &times; '+rpaying.length+'</div>';}
+    }
+    h+='</div>';
+
+    // Row 2: Booking fee
+    h+='<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
+    h+='<div style="font-size:11px;font-weight:700;color:#c9991e;min-width:90px">Booking Fee</div>';
+    h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">Paid by</span>'+feePlayerSel('bookPayer',RF.bookPayer)+'</div>';
+    h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">Total $</span>';
+    h+='<input type="number" min="0" step="1" value="'+(RF.bookAmt||'')+'" placeholder="0" style="width:72px;padding:4px 6px;border-radius:5px;background:#001a0e;border:1px solid #1a4028;color:#f5edd5;font-size:12px;text-align:right" oninput="RF.bookAmt=+this.value;render()"></div>';
+    if(RF.bookPayer!=null&&+RF.bookAmt>0){
+      var bpaying=a.filter(function(i){return excl.indexOf(i)<0;});
+      if(bpaying.length>0){var bsh=+RF.bookAmt/bpaying.length;h+='<div style="font-size:10px;color:#4a7050">$'+bsh.toFixed(2)+'/player &times; '+bpaying.length+'</div>';}
+    }
+    h+='</div>';
+
+    // Row 3: Exclude from fees
+    if(a.length>1){
+      h+='<div style="padding:10px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
+      h+='<div style="font-size:11px;font-weight:700;color:#c9991e;margin-bottom:8px">Exclude from Fees <span style="font-size:9px;font-weight:400;color:#4a7050">(gifted the round)</span></div>';
+      h+='<div style="display:flex;flex-wrap:wrap;gap:10px">';
+      a.forEach(function(i){
+        var chk=excl.indexOf(i)>=0;
+        h+='<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#b8d8c0;cursor:pointer">';
+        h+='<input type="checkbox"'+(chk?' checked':'')+' onchange="var ex=RF.feeExclude||[];var idx=ex.indexOf('+i+');if(this.checked){if(idx<0)ex.push('+i+');}else{if(idx>=0)ex.splice(idx,1);}RF.feeExclude=ex;render()" style="accent-color:#c9991e;width:14px;height:14px">';
+        h+=pn(i)+'</label>';
+      });
+      h+='</div></div>';
+    }
+
+    h+='</div>';
+  })();
 
   // ── Final Ledger ──────────────────────────────────────────────────────────
   var ov=overall(),txns=settleDebts(ov,ais());
