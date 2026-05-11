@@ -398,6 +398,232 @@ function settleDebts(ov,a){
   return tx;
 }
 
+// ── Module-level helpers ──────────────────────────────────────────────────────
+function mkBetCard(title,r,a,extra){
+  if(!r)return'';
+  var s='<div style="background:#002810;border:1px solid #1a4a28;border-radius:7px;padding:9px 11px;font-size:11px">';
+  s+='<div style="font-size:9px;font-weight:700;color:#f0bf30;letter-spacing:2px;text-transform:uppercase;margin-bottom:7px;border-bottom:1px solid #1a3820;padding-bottom:5px">'+title+'</div>';
+  if(extra)s+='<div style="margin-bottom:6px">'+extra+'</div>';
+  a.forEach(function(i){var v=r[i]||0;s+='<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="color:#b8d8c0;font-size:11px">'+pn(i)+'</span><span style="font-size:13px;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</span></div>';});
+  s+='</div>';
+  return s;
+}
+function mkBalGrid(bals,a,fSize,mb){
+  fSize=fSize||'19px';mb=mb!==undefined?mb:'16px';
+  var h='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:7px;margin-bottom:'+mb+'">';
+  a.forEach(function(i){var v=bals[i]||0;h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 11px;border-radius:6px;background:'+(v>0?'rgba(48,248,88,.07)':v<0?'rgba(255,90,90,.07)':'rgba(255,255,255,.03)')+';border:1px solid '+(v>0?'rgba(48,248,88,.28)':v<0?'rgba(255,90,90,.28)':'rgba(255,255,255,.08)')+'"><span style="font-weight:700;color:#f5edd5;font-size:13px">'+pn(i)+'</span><span style="font-size:'+fSize+';font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</span></div>';});
+  h+='</div>';return h;
+}
+function mkSettleTxns(txns,compact){
+  if(!txns.length)return'<div style="color:#4a7050;font-size:12px;text-align:center;padding:10px">✓ All square — nothing to settle.</div>';
+  var h='';
+  txns.forEach(function(t){
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:'+(compact?'7px 10px':'9px 12px')+';margin-bottom:6px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid #1a3820">';
+    h+='<span class="neg" style="font-size:'+(compact?'13px':'14px')+';font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.fr)+'</span>';
+    h+='<span style="font-size:10px;color:#4a7050;white-space:nowrap">owes</span>';
+    h+='<span style="font-size:'+(compact?'18px':'22px')+';font-weight:700;color:#f0bf30;min-width:'+(compact?'52px':'60px')+';text-align:center">$'+t.amt+'</span>';
+    h+='<span style="font-size:10px;color:#4a7050;white-space:nowrap">to</span>';
+    h+='<span class="pos" style="font-size:'+(compact?'13px':'14px')+';font-weight:700;flex:1;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.to)+'</span>';
+    h+='</div>';
+  });
+  return h;
+}
+function buildShareText(){
+  var a=ais(),net=NET();
+  var course=cN||'Golf Course';
+  var lines=['⛳ '+course,''];
+  var rPar=C.reduce(function(s,h){return s+h.par;},0);
+  var scoreLines=[];
+  a.forEach(function(i){
+    var gr=GR[i].map(Number);
+    var totG=gr.every(function(v){return!isNaN(v);})?gr.reduce(function(s,b){return s+b;},0):null;
+    var totN=net[i].every(function(v){return v!=null;})?net[i].reduce(function(s,b){return s+b;},0):null;
+    if(totG==null)return;
+    var diff=totN!=null?totN-rPar:null;
+    var ds=diff==null?'':(diff===0?' (E)':diff>0?' (+'+diff+')':' ('+diff+')');
+    scoreLines.push('  '+pn(i)+' — '+totG+' gross'+ds);
+  });
+  if(scoreLines.length){lines.push('📊 Scores');scoreLines.forEach(function(l){lines.push(l);});lines.push('');}
+  var betLines=[];
+  if(BT.nassau.on){
+    BT.nassau.mus.forEach(function(mu){
+      if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
+      var parts=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
+        var res=nassauHoles(mu.p1,mu.p2,sg[0],sg[1]);if(!res.complete)return'';
+        var w=res.w1>res.w2?pn(mu.p1):res.w2>res.w1?pn(mu.p2):null;
+        return sg[2]+': '+(w?w+' '+Math.max(res.w1,res.w2)+'-'+Math.min(res.w1,res.w2):'Halved');
+      }).filter(Boolean).join(' · ');
+      if(parts)betLines.push('Nassau ('+pn(mu.p1)+' v '+pn(mu.p2)+'): '+parts);
+    });
+  }
+  if(BT.match.on){
+    var mnet=NET();
+    BT.match.mus.forEach(function(mu){
+      if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
+      var run=0,played=0;C.forEach(function(_,hi){var n1=mnet[mu.p1][hi],n2=mnet[mu.p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
+      if(!played)return;
+      var rem=18-played,abs=Math.abs(run),ldr=run>0?mu.p1:run<0?mu.p2:null;
+      betLines.push('Match ('+pn(mu.p1)+' v '+pn(mu.p2)+'): '+(ldr?(abs>rem?pn(ldr)+' wins '+abs+'&'+rem:pn(ldr)+' '+abs+'UP'):'All Square'));
+    });
+  }
+  if(BT.dots.on&&dotsCalc()){var ds2=[];a.forEach(function(i){var dc=C.reduce(function(n,hole,hi){return n+(DT[hi][i].f&&hole.par>=4?1:0)+(DT[hi][i].g?1:0);},0);if(dc>0)ds2.push(pn(i)+' ×'+dc);});if(ds2.length)betLines.push('Dots: '+ds2.join(', '));}
+  if(BT.junk.on&&junkCalc()){var js=[];a.forEach(function(i){var jc=C.reduce(function(n,hole,hi){var j=JK[hi][i];return n+(j.gr&&hole.par===3?1:0)+(j.sa?1:0)+(j.ba?1:0)+(j.po?1:0);},0);if(jc>0)js.push(pn(i)+' ×'+jc);});if(js.length)betLines.push('Junk: '+js.join(', '));}
+  if(betLines.length){lines.push('🎯 Bets');betLines.forEach(function(l){lines.push('  '+l);});lines.push('');}
+  var bt=betsTotal();
+  var winners=a.filter(function(i){return bt[i]>0.4;}).sort(function(x,y){return bt[y]-bt[x];});
+  var losers=a.filter(function(i){return bt[i]<-0.4;});
+  if(winners.length)lines.push('🏆 '+winners.map(pn).join(' & ')+' won the day');
+  if(losers.length)lines.push('📉 '+losers.map(pn).join(' & ')+' settle up');
+  lines.push('','#GolfBet #Golf');
+  return lines.join('\n');
+}
+function doShare(platform){
+  var txt=buildShareText();
+  function copyFallback(){
+    try{
+      if(navigator.clipboard){navigator.clipboard.writeText(txt).then(function(){showN('📋 Copied to clipboard!');});return;}
+      var ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showN('📋 Copied!');
+    }catch(e){showN('Could not copy');}
+  }
+  if(platform==='native'){
+    if(navigator.share){navigator.share({title:'⛳ Golf Bet Tracker',text:txt}).catch(function(){});}
+    else copyFallback();
+  }else if(platform==='x'){
+    window.open('https://x.com/intent/tweet?text='+encodeURIComponent(txt.slice(0,280)),'_blank');
+  }else if(platform==='ig'){
+    copyFallback();showN('📋 Copied — open Instagram and paste in your story or bio!');
+  }else if(platform==='tt'){
+    copyFallback();showN('📋 Copied — open TikTok and paste in your caption!');
+  }else{
+    copyFallback();
+  }
+}
+function rFlow(){
+  var a=ais();
+  var h='<div id="ntf" class="ntf'+(nM?' on':'')+'">'+nM+'</div>';
+  if(!a.length)return h+'<div class="card"><p style="color:#4a7050">Add players in Setup to see money flow.</p></div>';
+  var ov=overall();
+  var hasAny=a.some(function(i){return Math.abs(ov[i])>0.4;});
+  if(!hasAny)return h+'<div class="card"><p style="color:#4a7050">No bets settled yet. Enter scores and enable bets in Setup.</p></div>';
+
+  h+='<div style="font-size:10px;color:#4a7050;margin-bottom:14px;padding:8px 12px;background:rgba(201,153,30,.05);border:1px solid rgba(201,153,30,.12);border-radius:5px">💸 Every dollar, traced. Each section shows exactly who pays whom for that bet — then everything nets into the final settlements.</div>';
+
+  function flowArrow(fr,to,amt,color){
+    color=color||'#f0bf30';
+    var h2='<div style="display:flex;align-items:stretch;margin-bottom:8px;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.06)">';
+    h2+='<div style="flex:1;background:rgba(255,90,90,.08);padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center">';
+    h2+='<div style="font-size:12px;font-weight:700;color:#ff9090">'+pn(fr)+'</div>';
+    h2+='<div style="font-size:9px;color:#4a7050;margin-top:2px">pays</div></div>';
+    h2+='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:76px;background:rgba(0,18,8,.6);border-left:1px solid rgba(255,255,255,.06);border-right:1px solid rgba(255,255,255,.06);padding:6px 4px">';
+    h2+='<div style="font-size:17px;font-weight:700;color:'+color+';line-height:1.1">$'+amt+'</div>';
+    h2+='<div style="font-size:18px;color:'+color+';line-height:1">→</div></div>';
+    h2+='<div style="flex:1;background:rgba(48,248,88,.06);padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center">';
+    h2+='<div style="font-size:12px;font-weight:700;color:#30f858">'+pn(to)+'</div>';
+    h2+='<div style="font-size:9px;color:#4a7050;margin-top:2px">receives</div></div>';
+    h2+='</div>';
+    return h2;
+  }
+
+  var net=NET();
+  var games=[
+    {name:'Nassau',result:nassauCalc(),detail:function(){
+      var d='';
+      BT.nassau.mus.forEach(function(mu){
+        if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
+        var parts=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
+          var res=nassauHoles(mu.p1,mu.p2,sg[0],sg[1]);if(!res.complete)return sg[2]+':?';
+          var w=res.w1>res.w2?pn(mu.p1):res.w2>res.w1?pn(mu.p2):null;
+          return sg[2]+': '+(w?'<span style="color:#30f858">'+w+'</span> '+Math.max(res.w1,res.w2)+'-'+Math.min(res.w1,res.w2):'<span style="color:#4a7050">Halved</span>');
+        }).join(' &nbsp;·&nbsp; ');
+        d+='<div style="font-size:9px;color:#7acc90;margin-bottom:6px;padding:5px 8px;background:rgba(0,40,16,.4);border-radius:4px">'+pn(mu.p1)+' v '+pn(mu.p2)+' &nbsp;|&nbsp; '+parts+'</div>';
+      });
+      return d;
+    }},
+    {name:'Match Play',result:matchCalc(),detail:function(){
+      var d='';
+      BT.match.mus.forEach(function(mu){
+        if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
+        var run=0,played=0;C.forEach(function(_,hi){var n1=net[mu.p1][hi],n2=net[mu.p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
+        var rem=18-played,abs=Math.abs(run),ldr=run>0?mu.p1:run<0?mu.p2:null;
+        var st=ldr?(abs>rem&&played>0?pn(ldr)+' wins '+abs+'&amp;'+rem:pn(ldr)+' '+abs+'UP'):'All Square';
+        d+='<div style="font-size:9px;color:#7acc90;margin-bottom:6px;padding:5px 8px;background:rgba(0,40,16,.4);border-radius:4px">'+pn(mu.p1)+' v '+pn(mu.p2)+': <span style="color:#c9991e">'+st+'</span></div>';
+      });
+      return d;
+    }},
+    {name:'Wolf',result:wolfCalc(),detail:null},
+    {name:'6/6/6',result:s666Calc(),detail:function(){
+      if(!BT.s666.segs)return'';
+      var d='';
+      ['H1–6','H7–12','H13–18'].forEach(function(lbl,si){
+        var seg=BT.s666.segs[si],t1=seg.t1,t2=seg.t2,hw=[0,0];
+        for(var hh=si*6;hh<si*6+6;hh++){if(t1.concat(t2).some(function(p){return net[p][hh]==null;}))continue;var s1=net[t1[0]][hh]+net[t1[1]][hh],s2=net[t2[0]][hh]+net[t2[1]][hh];if(s1<s2)hw[0]++;else if(s2<s1)hw[1]++;}
+        d+='<div style="font-size:9px;color:#7acc90;margin-bottom:4px;padding:4px 8px;background:rgba(0,40,16,.4);border-radius:4px">'+lbl+': '+pn(t1[0])+'&amp;'+pn(t1[1])+' <span style="color:#c9991e;font-weight:700">'+hw[0]+'-'+hw[1]+'</span> '+pn(t2[0])+'&amp;'+pn(t2[1])+'</div>';
+      });
+      return d;
+    }},
+    {name:'5-3-1',result:s531Calc(),detail:function(){
+      var pts=s531Pts(),d='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">';
+      a.forEach(function(i){d+='<div style="font-size:9px;padding:4px 8px;background:rgba(0,40,16,.4);border-radius:4px;color:#7acc90">'+pn(i)+' <span style="color:#c9991e;font-weight:700">'+pts[i]+' pts</span></div>';});
+      return d+'</div>';
+    }},
+    {name:'Par 3 Clock',result:p3cCalc(),detail:null},
+    {name:'Dots',result:dotsCalc(),detail:null},
+    {name:'Junk',result:junkCalc(),detail:null},
+  ];
+
+  var anyGame=false;
+  games.forEach(function(game){
+    if(!game.result)return;
+    var txns=settleDebts(game.result,a);
+    if(!txns.length)return;
+    anyGame=true;
+    h+='<div class="card" style="margin-bottom:10px">';
+    h+='<div class="ct" style="margin-bottom:10px">'+game.name+'</div>';
+    if(game.detail){var det=game.detail();if(det)h+=det;}
+    txns.forEach(function(t){h+=flowArrow(t.fr,t.to,t.amt,'#f0bf30');});
+    h+='</div>';
+  });
+
+  // Fees flow
+  var ft=feesTotal();
+  var feeTxns=settleDebts(ft,a);
+  if(feeTxns.length){
+    anyGame=true;
+    h+='<div class="card" style="margin-bottom:10px;border-color:rgba(100,160,120,.3)">';
+    h+='<div class="ct" style="margin-bottom:10px">Round Fees</div>';
+    var excl=RF.feeExclude||[];
+    if(excl.length){h+='<div style="font-size:9px;color:#4a7050;margin-bottom:8px">Gifted (pays nothing): '+excl.map(pn).join(', ')+'</div>';}
+    feeTxns.forEach(function(t){h+=flowArrow(t.fr,t.to,t.amt,'#7acc90');});
+    h+='</div>';
+  }
+
+  if(!anyGame){h+='<div class="card"><p style="color:#4a7050">All bets are square — no money changes hands.</p></div>';return h;}
+
+  // Net final settlements
+  var allTxns=settleDebts(ov,a);
+  h+='<div class="card" style="border-color:rgba(201,153,30,.5)">';
+  h+='<div class="ct" style="margin-bottom:8px">Net — Final Settlements</div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin-bottom:12px">All bets and fees netted together. These are the minimum actual payments.</div>';
+  if(allTxns.length){
+    allTxns.forEach(function(t){
+      var h2='<div style="display:flex;align-items:stretch;margin-bottom:10px;border-radius:7px;overflow:hidden;border:1px solid rgba(240,191,48,.2)">';
+      h2+='<div style="flex:1;background:rgba(255,90,90,.1);padding:12px 14px;text-align:center;display:flex;flex-direction:column;justify-content:center">';
+      h2+='<div style="font-size:14px;font-weight:700;color:#ff9090">'+pn(t.fr)+'</div>';
+      h2+='<div style="font-size:9px;color:#4a7050;margin-top:3px">pays</div></div>';
+      h2+='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:88px;background:rgba(0,18,8,.7);border-left:1px solid rgba(240,191,48,.2);border-right:1px solid rgba(240,191,48,.2);padding:8px 4px">';
+      h2+='<div style="font-size:22px;font-weight:700;color:#f0bf30;line-height:1.1">$'+t.amt+'</div>';
+      h2+='<div style="font-size:20px;color:#f0bf30;line-height:1">→</div></div>';
+      h2+='<div style="flex:1;background:rgba(48,248,88,.08);padding:12px 14px;text-align:center;display:flex;flex-direction:column;justify-content:center">';
+      h2+='<div style="font-size:14px;font-weight:700;color:#30f858">'+pn(t.to)+'</div>';
+      h2+='<div style="font-size:9px;color:#4a7050;margin-top:3px">receives</div></div>';
+      h2+='</div>';
+      h+=h2;
+    });
+  }else{h+='<div style="color:#4a7050;font-size:12px;text-align:center;padding:12px">✓ All square — nothing to settle.</div>';}
+  h+='</div>';
+  return h;
+}
+
 // ── Course Search — direct API call (or optional Cloudflare Worker proxy) ─────
 async function apiFetch(proxyPath,directSuffix){
   if(PROXY_URL){
@@ -903,9 +1129,9 @@ function rResults(){
   var a=ais();
   var h='<div id="ntf" class="ntf'+(nM?' on':'')+'">'+nM+'</div>';
 
+  var net=NET();
   // ── Scores summary ────────────────────────────────────────────────────────
   if(a.length){
-    var net=NET();
     var fPar=C.slice(0,9).reduce(function(s,x){return s+x.par;},0);
     var bPar=C.slice(9,18).reduce(function(s,x){return s+x.par;},0);
     var rPar=fPar+bPar;
@@ -946,26 +1172,11 @@ function rResults(){
 
   // Build compact bet cards
   var cards=[];
-  function mkCard(title,r,extra){
-    if(!r)return;
-    var s='<div style="background:#002810;border:1px solid #1a4a28;border-radius:7px;padding:9px 11px;font-size:11px">';
-    s+='<div style="font-size:9px;font-weight:700;color:#f0bf30;letter-spacing:2px;text-transform:uppercase;margin-bottom:7px;border-bottom:1px solid #1a3820;padding-bottom:5px">'+title+'</div>';
-    if(extra)s+='<div style="margin-bottom:6px">'+extra+'</div>';
-    a.forEach(function(i){
-      var v=r[i]||0;
-      s+='<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)">';
-      s+='<span style="color:#b8d8c0;font-size:11px">'+pn(i)+'</span>';
-      s+='<span style="font-size:13px;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</span>';
-      s+='</div>';
-    });
-    s+='</div>';
-    cards.push(s);
-  }
 
   // Nassau
   var N=nassauCalc();
   if(N){
-    var net2=NET(),nex='';
+    var nex='';
     BT.nassau.mus.forEach(function(mu){
       if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
       var segs=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
@@ -976,45 +1187,45 @@ function rResults(){
       }).join('  ');
       nex+='<div style="font-size:9px;color:#7acc90;line-height:1.6">'+pn(mu.p1)+' v '+pn(mu.p2)+'<br><span style="color:#4a7050">'+segs+'</span></div>';
     });
-    mkCard('Nassau',N,nex);
+    cards.push(mkBetCard('Nassau',N,a,nex));
   }
   // Match
   var M=matchCalc();
   if(M){
-    var net3=NET(),mex='';
+    var mex='';
     BT.match.mus.forEach(function(mu){
       if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
       var run=0,played=0;
-      C.forEach(function(_,hi){var n1=net3[mu.p1][hi],n2=net3[mu.p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
+      C.forEach(function(_,hi){var n1=net[mu.p1][hi],n2=net[mu.p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
       var rem=18-played,abs=Math.abs(run),ldr=run>0?mu.p1:run<0?mu.p2:null;
       var st=ldr?(abs>rem&&played>0?pn(ldr)+' wins '+abs+'&'+rem:pn(ldr)+' '+abs+'UP'):('All Square');
       mex+='<div style="font-size:9px;color:#c9991e;line-height:1.6">'+pn(mu.p1)+' v '+pn(mu.p2)+'<br><span style="color:#8ab890">'+st+(played<18?' ('+rem+' left)':'')+'</span></div>';
     });
-    mkCard('Match Play',M,mex);
+    cards.push(mkBetCard('Match Play',M,a,mex));
   }
-  var W=wolfCalc(); if(W)mkCard('Wolf',W);
+  var W=wolfCalc(); if(W)cards.push(mkBetCard('Wolf',W,a));
   var S6=s666Calc();
   if(S6){
-    var net4=NET(),ex6='';
+    var ex6='';
     ['H1-6','H7-12','H13-18'].forEach(function(lbl,si){
       var seg=BT.s666.segs[si],t1=seg.t1,t2=seg.t2,hw=[0,0];
       for(var hh=si*6;hh<si*6+6;hh++){
-        if(t1.concat(t2).some(function(p){return net4[p][hh]==null;}))continue;
-        var s1=net4[t1[0]][hh]+net4[t1[1]][hh],s2=net4[t2[0]][hh]+net4[t2[1]][hh];
+        if(t1.concat(t2).some(function(p){return net[p][hh]==null;}))continue;
+        var s1=net[t1[0]][hh]+net[t1[1]][hh],s2=net[t2[0]][hh]+net[t2[1]][hh];
         if(s1<s2)hw[0]++;else if(s2<s1)hw[1]++;
       }
       ex6+='<div style="font-size:9px;color:#a0c8a8;line-height:1.7"><span style="color:#4a7050">'+lbl+'</span> '+pn(t1[0])+'&amp;'+pn(t1[1])+' <span style="color:#c9991e;font-weight:700">'+hw[0]+'-'+hw[1]+'</span> '+pn(t2[0])+'&amp;'+pn(t2[1])+'</div>';
     });
-    mkCard('6/6/6',S6,ex6);
+    cards.push(mkBetCard('6/6/6',S6,a,ex6));
   }
   if(BT.s531.on&&ais().length===3){
     var pts=s531Pts(),ex53='';
     ais().forEach(function(i){ex53+='<div style="font-size:9px;color:#7acc90;line-height:1.6">'+pn(i)+' <span style="color:#c9991e">'+pts[i]+' pts</span></div>';});
-    mkCard('5-3-1',s531Calc(),ex53);
+    cards.push(mkBetCard('5-3-1',s531Calc(),a,ex53));
   }
-  var P3=p3cCalc(); if(P3)mkCard('Par 3 Clock',P3);
-  var D=dotsCalc();  if(D)mkCard('Dots',D);
-  var J=junkCalc();  if(J)mkCard('Junk',J);
+  var P3=p3cCalc(); if(P3)cards.push(mkBetCard('Par 3 Clock',P3,a));
+  var D=dotsCalc();  if(D)cards.push(mkBetCard('Dots',D,a));
+  var J=junkCalc();  if(J)cards.push(mkBetCard('Junk',J,a));
 
   // Compact grid — fills available width, 3+ cards per row on wide screens
   if(cards.length){
@@ -1034,6 +1245,14 @@ function rResults(){
     a.forEach(function(i){o+='<option value="'+i+'"'+(val===i?' selected':'')+'>'+pn(i)+'</option>';});
     return '<select style="'+_selStyle+'" onchange="RF.'+field+'=(+this.value===-1?null:+this.value);render()">'+o+'</select>';
   }
+  h+='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;padding:11px 14px;background:#001208;border:1px solid #1a4028;border-radius:8px">';
+  h+='<span style="font-size:10px;color:#4a7050;margin-right:4px;white-space:nowrap;flex-shrink:0">Share results (no $)</span>';
+  h+='<button class="btn sm" onclick="doShare(\'native\')" title="Share via native share sheet (mobile)">📱 Share</button>';
+  h+='<button class="btn sm" onclick="doShare(\'x\')" style="color:#e8e8e8;border-color:#333" title="Post to X / Twitter">𝕏 Post</button>';
+  h+='<button class="btn sm" onclick="doShare(\'ig\')" style="color:#e060b8;border-color:#602848" title="Copy for Instagram">📷 Instagram</button>';
+  h+='<button class="btn sm" onclick="doShare(\'tt\')" style="color:#60e0e0;border-color:#204858" title="Copy for TikTok">♪ TikTok</button>';
+  h+='<button class="btn sm" onclick="doShare(\'copy\')" title="Copy to clipboard">📋 Copy</button>';
+  h+='</div>';
   h+='<div class="card" style="margin-bottom:10px;border-color:rgba(100,160,120,.35)">';
   h+='<div class="ct" style="margin-bottom:12px">Round Fees</div>';
   h+='<div style="font-size:10px;color:#4a7050;margin-bottom:14px">Enter who paid and how much. Each fee is split evenly among all golfers (excluding anyone gifted the round). Tab or click out of an amount field to apply.</div>';
@@ -1080,30 +1299,10 @@ function rResults(){
     var _btTxns=settleDebts(_bt,ais());
     h+='<div class="card" style="margin-bottom:10px;border-color:rgba(80,140,100,.4)">';
     h+='<div class="ct" style="margin-bottom:8px">Betting Ledger <span style="font-size:9px;font-weight:400;color:#4a7050;letter-spacing:0">(bets only, before fees)</span></div>';
-    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:7px;margin-bottom:14px">';
-    ais().forEach(function(i){
-      var v=_bt[i]||0;
-      h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 11px;border-radius:6px;';
-      h+='background:'+(v>0?'rgba(48,248,88,.06)':v<0?'rgba(255,90,90,.06)':'rgba(255,255,255,.02)')+';';
-      h+='border:1px solid '+(v>0?'rgba(48,248,88,.2)':v<0?'rgba(255,90,90,.2)':'rgba(255,255,255,.06)')+';">';
-      h+='<span style="font-weight:700;color:#f5edd5;font-size:12px">'+pn(i)+'</span>';
-      h+='<span style="font-size:17px;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</span>';
-      h+='</div>';
-    });
+    h+=mkBalGrid(_bt,ais(),'17px','14px');
+    h+='<div style="border-top:1px solid #1a3820;padding-top:10px">';
+    h+=mkSettleTxns(_btTxns,true);
     h+='</div>';
-    if(_btTxns.length){
-      h+='<div style="border-top:1px solid #1a3820;padding-top:10px">';
-      _btTxns.forEach(function(t){
-        h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:5px;border-radius:6px;background:rgba(255,255,255,.02);border:1px solid #1a3820">';
-        h+='<span class="neg" style="font-size:13px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.fr)+'</span>';
-        h+='<span style="font-size:10px;color:#4a7050">owes</span>';
-        h+='<span style="font-size:18px;font-weight:700;color:#f0bf30;min-width:52px;text-align:center">$'+t.amt+'</span>';
-        h+='<span style="font-size:10px;color:#4a7050">to</span>';
-        h+='<span class="pos" style="font-size:13px;font-weight:700;flex:1;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.to)+'</span>';
-        h+='</div>';
-      });
-      h+='</div>';
-    }else{h+='<div style="color:#4a7050;font-size:12px;text-align:center;padding:8px">✓ Bets all square.</div>';}
     h+='</div>';
 
     // Fee breakdown summary — one row per fee, one column per player
@@ -1172,34 +1371,12 @@ function rResults(){
 
   // Net balance grid
   h+='<div style="font-size:9px;color:#4a7050;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Net Balance Per Player</div>';
-  h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:7px;margin-bottom:16px">';
-  ais().forEach(function(i){
-    var v=_ov[i]||0;
-    h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 11px;border-radius:6px;';
-    h+='background:'+(v>0?'rgba(48,248,88,.07)':v<0?'rgba(255,90,90,.07)':'rgba(255,255,255,.03)')+';';
-    h+='border:1px solid '+(v>0?'rgba(48,248,88,.28)':v<0?'rgba(255,90,90,.28)':'rgba(255,255,255,.08)')+';">';
-    h+='<span style="font-weight:700;color:#f5edd5;font-size:13px">'+pn(i)+'</span>';
-    h+='<span style="font-size:19px;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</span>';
-    h+='</div>';
-  });
-  h+='</div>';
+  h+=mkBalGrid(_ov,ais());
 
   // Minimum transactions
   h+='<div style="border-top:1px solid #1a3820;padding-top:12px">';
   h+='<div style="font-size:9px;color:#4a7050;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">Minimum Transactions to Settle Up</div>';
-  if(_txns.length){
-    _txns.forEach(function(t){
-      h+='<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;margin-bottom:6px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid #1a3820">';
-      h+='<span class="neg" style="font-size:14px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.fr)+'</span>';
-      h+='<span style="font-size:10px;color:#4a7050;white-space:nowrap">owes</span>';
-      h+='<span style="font-size:22px;font-weight:700;color:#f0bf30;min-width:60px;text-align:center">$'+t.amt+'</span>';
-      h+='<span style="font-size:10px;color:#4a7050;white-space:nowrap">to</span>';
-      h+='<span class="pos" style="font-size:14px;font-weight:700;flex:1;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.to)+'</span>';
-      h+='</div>';
-    });
-  }else{
-    h+='<div style="color:#4a7050;font-size:12px;text-align:center;padding:10px">✓ All square — nothing to settle.</div>';
-  }
+  h+=mkSettleTxns(_txns,false);
   h+='</div></div>';
   if(editingRoundId){
     var eRd=rounds.find(function(r){return r.id===editingRoundId;});
@@ -1259,7 +1436,7 @@ function rHist(){
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
-function getTabs(){var a=ais(),ts=[{id:'setup',l:'Setup'},{id:'scores',l:'Scores'}];if(BT.dots.on||BT.junk.on||BT.p3c.on)ts.push({id:'extras',l:'Dots/Junk'});if(BT.wolf.on&&a.length===4)ts.push({id:'wolf',l:'Wolf'});ts.push({id:'results',l:'Results'},{id:'hist',l:'History'});return ts;}
+function getTabs(){var a=ais(),ts=[{id:'setup',l:'Setup'},{id:'scores',l:'Scores'}];if(BT.dots.on||BT.junk.on||BT.p3c.on)ts.push({id:'extras',l:'Dots/Junk'});if(BT.wolf.on&&a.length===4)ts.push({id:'wolf',l:'Wolf'});ts.push({id:'results',l:'Results'},{id:'flow',l:'Money Flow'},{id:'hist',l:'History'});return ts;}
 function setTab(t){TAB=t;render();}
 function setNumP(n){numP=n;P.forEach(function(p,i){p.on=i<n;});render();}
 function togBet(k){BT[k].on=!BT[k].on;render();}
@@ -1344,6 +1521,7 @@ function render(){
   else if(TAB==='extras')body=rExtras();
   else if(TAB==='wolf')body=rWolf();
   else if(TAB==='results')body=rResults();
+  else if(TAB==='flow')body=rFlow();
   else body=rHist();
   root.innerHTML='<div class="hdr"><div class="ttl">⛳ GOLF BET TRACKER'+(profile&&profile.name!=='Demo'?'<span style="font-size:10px;color:#3a6040;margin-left:14px;letter-spacing:1px">'+profile.name+'</span>':'')+'</div><div class="tabs">'+th+'</div></div><div class="bd">'+body+'</div>';
   var ntf=document.getElementById('ntf');if(ntf&&nM){ntf.textContent=nM;ntf.className='ntf on';}
