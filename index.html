@@ -940,18 +940,121 @@ function ensureProfileInRoster(){
 function doDemo(){profile={name:'Demo',hcp:10};loggedIn=true;loginErr='';render();}
 function doReset(){if(confirm('Reset profile? Rounds and golfer names are kept.'))storage.del('prof').then(function(){profile=null;loggedIn=false;render();});}
 
+// ── Profile Backup / Restore ─────────────────────────────────────────────────
+// Encodes a JS string as base64 safely (handles unicode player names)
+function _b64enc(str){
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,function(m,p){return String.fromCharCode('0x'+p);}));
+}
+function _b64dec(b64){
+  return decodeURIComponent(atob(b64).split('').map(function(c){return'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));
+}
+// Reads and validates restore data from the URL hash (#r=...)
+function parseRestoreHash(){
+  try{
+    var h=window.location.hash;
+    if(!h||!h.startsWith('#r='))return null;
+    var data=JSON.parse(_b64dec(h.slice(3)));
+    if(!data||!data.profile||!data.profile.name)return null;
+    return data;
+  }catch(e){return null;}
+}
+// Called from the backup button in the header
+function doBackup(){
+  var data={v:1,profile:profile,sG:sG,rounds:rounds};
+  try{
+    var encoded=_b64enc(JSON.stringify(data));
+    var url=location.origin+location.pathname+'#r='+encoded;
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(function(){
+        showN('Backup link copied! Open it on your phone and enter PIN 2254 to restore.');
+      }).catch(function(){prompt('Copy this restore link:',url);});
+    }else{
+      prompt('Copy this restore link:',url);
+    }
+  }catch(e){showN('Backup failed: '+e.message);}
+}
+// Called from the restore button on the login screen (URL hash flow)
+function doRestore(){
+  var pinEl=document.getElementById('rpin');
+  if(!pinEl)return;
+  if(pinEl.value.trim()!=='2254'){loginErr='Incorrect PIN.';render();return;}
+  var data=parseRestoreHash();
+  if(!data){loginErr='Restore data missing or corrupted.';render();return;}
+  _applyRestoreData(data);
+}
+// Called from the manual "paste a code" flow
+function doRestoreCode(){
+  var codeEl=document.getElementById('rcode'),pinEl=document.getElementById('rcpin');
+  if(!codeEl||!pinEl)return;
+  if(pinEl.value.trim()!=='2254'){loginErr='Incorrect PIN.';render();return;}
+  try{
+    var data=JSON.parse(_b64dec(codeEl.value.trim()));
+    if(!data||!data.profile||!data.profile.name)throw new Error('Invalid backup code');
+    _applyRestoreData(data);
+  }catch(e){loginErr='Could not read code — make sure you copied the full backup string.';render();}
+}
+function _applyRestoreData(data){
+  profile=data.profile;
+  sG=data.sG||[];
+  rounds=data.rounds||[];
+  var saves=[
+    storage.set('prof',JSON.stringify(profile)),
+    storage.set('sGolfers',JSON.stringify(sG))
+  ];
+  rounds.forEach(function(r){saves.push(storage.set(r.id,JSON.stringify(r)));});
+  Promise.all(saves).then(function(){
+    loggedIn=true;loginErr='';
+    history.replaceState(null,'',location.pathname); // strip hash from URL
+    TAB='hist';render();
+    showN('✓ Restored '+profile.name+'\'s profile with '+rounds.length+' round(s).');
+  }).catch(function(e){loginErr='Save failed: '+e.message;render();});
+}
+
 // ── Login render ──────────────────────────────────────────────────────────────
 function rLogin(){
+  var restoreData=parseRestoreHash();
   var h='<div style="background:#001208;min-height:100vh;padding:20px">';
   h+='<div style="text-align:center;padding:28px 0 18px"><div style="font-size:24px;color:#f0bf30;letter-spacing:3px;font-weight:500">⛳ GOLF BET TRACKER</div></div>';
+
+  // ── Restore from URL hash ──────────────────────────────────────────────────
+  if(restoreData){
+    var rn=restoreData.profile.name,rr=(restoreData.rounds||[]).length;
+    h+='<div class="lc" style="border-color:#c9991e;margin-bottom:16px">';
+    h+='<div style="color:#c9991e;font-weight:700;letter-spacing:2px;font-size:13px;margin-bottom:6px">⛳ RESTORE PROFILE</div>';
+    h+='<div style="font-size:12px;color:#f5edd5;margin-bottom:16px;line-height:1.6">';
+    h+='Found <span style="color:#f0bf30;font-weight:700">'+rn+'\'s</span> profile with <span style="color:#f0bf30;font-weight:700">'+rr+'</span> saved round(s).<br>';
+    h+='<span style="color:#4a7050">Enter the owner PIN to load it on this device.</span></div>';
+    h+='<div style="margin-bottom:14px"><div class="lbl">Owner PIN</div>';
+    h+='<input id="rpin" class="bi" type="password" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" onkeydown="if(event.key===\'Enter\')doRestore()"></div>';
+    if(loginErr)h+='<div class="ferr">⚠ '+loginErr+'</div>';
+    h+='<button class="btn gold" style="width:100%;padding:13px;font-size:14px" onclick="doRestore()">Restore '+rn+'\'s Profile</button>';
+    h+='</div>';
+    // Divider
+    h+='<div style="text-align:center;color:#1a4028;font-size:11px;letter-spacing:2px;margin-bottom:14px">— OR —</div>';
+  }
+
+  // ── New profile form ───────────────────────────────────────────────────────
   h+='<div class="lc">';
   h+='<div style="color:#f0bf30;font-weight:700;letter-spacing:2px;font-size:13px;margin-bottom:8px">CREATE PROFILE</div>';
   h+='<div style="color:#7acc90;font-size:12px;line-height:1.7;margin-bottom:18px;padding:10px 12px;background:rgba(122,204,144,.07);border:1px solid rgba(122,204,144,.18);border-radius:5px">Your profile saves your name, handicap, golfer roster, and round history — all stored privately on this device.</div>';
   h+='<div style="margin-bottom:12px"><div class="lbl">Your Name</div><input id="cn" class="bi" placeholder="e.g. John Smith" autocomplete="off"></div>';
   h+='<div style="margin-bottom:16px"><div class="lbl">Handicap Index</div><input id="chcp" type="number" min="0" max="54" class="bi" style="letter-spacing:2px" placeholder="e.g. 12"></div>';
-  if(loginErr)h+='<div class="ferr">⚠ '+loginErr+'</div>';
+  if(!restoreData&&loginErr)h+='<div class="ferr">⚠ '+loginErr+'</div>';
   h+='<button class="btn gold" style="width:100%;padding:13px;font-size:14px;margin-bottom:10px" onclick="doCreate2()">Let\'s Go</button>';
   h+='<button class="btn" style="width:100%;padding:8px;font-size:11px;color:#4a7050;border-color:#1a4028" onclick="doDemo()">⚡ Demo Mode</button>';
+
+  // ── Manual restore (paste code) ────────────────────────────────────────────
+  h+='<div style="margin-top:18px;border-top:1px solid #0d2a18;padding-top:14px">';
+  h+='<div style="font-size:10px;color:#2a5030;letter-spacing:1px;text-align:center;cursor:pointer;padding:4px" onclick="var s=document.getElementById(\'mrc\');s.style.display=s.style.display===\'none\'?\'block\':\'none\'">▼ have a restore code?</div>';
+  h+='<div id="mrc" style="display:none;margin-top:12px">';
+  h+='<div style="font-size:11px;color:#4a7050;margin-bottom:8px">Paste the backup code (everything after <span style="color:#c9991e">#r=</span> in the restore link):</div>';
+  h+='<textarea id="rcode" style="width:100%;height:72px;background:#001208;border:1px solid #1a4028;border-radius:4px;color:#f5edd5;font:10px \'Courier New\';padding:6px;resize:vertical" placeholder="Paste code here..."></textarea>';
+  h+='<div style="margin-top:8px"><div class="lbl">Owner PIN</div><input id="rcpin" class="bi" type="password" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" onkeydown="if(event.key===\'Enter\')doRestoreCode()"></div>';
+  if(!restoreData&&loginErr)h+='<div class="ferr">⚠ '+loginErr+'</div>';
+  h+='<button class="btn" style="width:100%;padding:9px;margin-top:10px;color:#c9991e;border-color:#4a3010" onclick="doRestoreCode()">Restore from Code</button>';
+  h+='</div>';
+  h+='</div>';
+
   h+='</div></div>';
   return h;
 }
@@ -1689,7 +1792,8 @@ function render(){
   else if(TAB==='flow')body=rFlow();
   else body=rHist();
   var shareBar='<div style="display:flex;gap:4px;align-items:center;flex-shrink:0"><span style="font-size:9px;color:#3a6040;letter-spacing:.5px;white-space:nowrap">Share</span><button class="btn sm" onclick="doShare(\'native\')" style="padding:3px 7px;font-size:11px" title="Share via native share sheet">📱</button><button class="btn sm" onclick="doShare(\'x\')" style="padding:3px 7px;font-size:11px;color:#d0d0d0;border-color:#333" title="Post to X">𝕏</button><button class="btn sm" onclick="doShare(\'ig\')" style="padding:3px 7px;font-size:11px;color:#e060b8;border-color:#602848" title="Copy for Instagram">📷</button><button class="btn sm" onclick="doShare(\'tt\')" style="padding:3px 7px;font-size:11px;color:#60e0e0;border-color:#204858" title="Copy for TikTok">♪</button><button class="btn sm" onclick="doShare(\'copy\')" style="padding:3px 7px;font-size:11px" title="Copy to clipboard">📋</button></div>';
-  root.innerHTML='<div class="hdr"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px"><div class="ttl" style="margin-bottom:0">⛳ GOLF BET TRACKER'+(profile&&profile.name!=='Demo'?'<span style="font-size:10px;color:#3a6040;margin-left:14px;letter-spacing:1px">'+profile.name+'</span>':'')+'</div>'+shareBar+'</div><div class="tabs">'+th+'</div></div><div class="bd">'+body+'</div>';
+  var backupBtn=(profile&&profile.name!=='Demo')?'<button class="btn sm" onclick="doBackup()" style="padding:3px 8px;font-size:11px;border-color:#2a5030;color:#4a9060" title="Generate a restore link for another device">💾 Backup</button>':'';
+  root.innerHTML='<div class="hdr"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px"><div class="ttl" style="margin-bottom:0">⛳ GOLF BET TRACKER'+(profile&&profile.name!=='Demo'?'<span style="font-size:10px;color:#3a6040;margin-left:14px;letter-spacing:1px">'+profile.name+'</span>':'')+'</div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+backupBtn+shareBar+'</div></div><div class="tabs">'+th+'</div></div><div class="bd">'+body+'</div>';
   var ntf=document.getElementById('ntf');if(ntf&&nM){ntf.textContent=nM;ntf.className='ntf on';}
 }
 
