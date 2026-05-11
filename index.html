@@ -498,6 +498,146 @@ function doShare(platform){
     copyFallback();
   }
 }
+// ── Flow Visual — SVG avatar diagram ─────────────────────────────────────────
+function buildFlowVisual(a){
+  var n=a.length;if(n<2)return'';
+  // Collect per-game gross flows (each bet settled independently = gross)
+  var flows=[];
+  var GC={'Nassau':'#f0bf30','Match':'#60c0ff','Wolf':'#e07030','6/6/6':'#c060ff',
+          '5-3-1':'#60e0a0','P3C':'#ff6060','Dots':'#80d840','Junk':'#e0a040','Fees':'#7acc90'};
+  [['Nassau',nassauCalc()],['Match',matchCalc()],['Wolf',wolfCalc()],['6/6/6',s666Calc()],
+   ['5-3-1',s531Calc()],['P3C',p3cCalc()],['Dots',dotsCalc()],['Junk',junkCalc()],['Fees',feesTotal()]
+  ].forEach(function(gd){
+    if(!gd[1])return;
+    settleDebts(gd[1],a).forEach(function(t){flows.push({fr:t.fr,to:t.to,amt:t.amt,game:gd[0],color:GC[gd[0]]||'#f0bf30'});});
+  });
+  if(!flows.length)return'';
+
+  var W=600,H=n===2?300:n===3?450:550;
+  var R=40; // avatar radius
+
+  // Player positions (keep away from edges so labels don't clip)
+  var pos={};
+  var pad=R+70;
+  if(n===2){
+    pos[a[0]]={x:pad,y:H/2};
+    pos[a[1]]={x:W-pad,y:H/2};
+  }else if(n===3){
+    pos[a[0]]={x:W/2,y:pad};
+    pos[a[1]]={x:pad,y:H-pad};
+    pos[a[2]]={x:W-pad,y:H-pad};
+  }else{
+    pos[a[0]]={x:pad,y:pad};
+    pos[a[1]]={x:W-pad,y:pad};
+    pos[a[2]]={x:pad,y:H-pad};
+    pos[a[3]]={x:W-pad,y:H-pad};
+  }
+
+  // Group flows by (fr→to) — combine multiple games into one arrow per direction
+  var pairMap={};
+  flows.forEach(function(f){
+    var k=f.fr+'-'+f.to;
+    if(!pairMap[k]){pairMap[k]={fr:f.fr,to:f.to,flows:[]};}
+    pairMap[k].flows.push(f);
+  });
+
+  // Helper: point on circle edge toward target
+  function edgePt(cx,cy,tx,ty,r){
+    var dx=tx-cx,dy=ty-cy,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<0.001)return{x:cx+r,y:cy};
+    return{x:cx+dx/d*r,y:cy+dy/d*r};
+  }
+
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">';
+  svg+='<defs>';
+  // Arrowhead markers for each color family
+  [['gld','#f0bf30'],['blu','#60c0ff'],['grn','#7acc90'],['pur','#c060ff'],['org','#e07030'],['red','#ff6060'],['lim','#80d840']].forEach(function(cm){
+    svg+='<marker id="ah-'+cm[0]+'" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="'+cm[1]+'"/></marker>';
+  });
+  svg+='</defs>';
+
+  // Draw arrows first (behind avatars)
+  Object.keys(pairMap).forEach(function(key){
+    var pm=pairMap[key];
+    var fr=pm.fr,to=pm.to;
+    var fp=pos[fr],tp=pos[to];
+    var hasRev=!!(pairMap[to+'-'+fr]);
+
+    var dx=tp.x-fp.x,dy=tp.y-fp.y;
+    var d=Math.sqrt(dx*dx+dy*dy);
+    var px=-dy/d,py=dx/d; // perpendicular (left)
+
+    // Curve offset: bend apart when bidirectional arrows exist
+    var offset=hasRev?55:0;
+    var mx=(fp.x+tp.x)/2+px*offset;
+    var my=(fp.y+tp.y)/2+py*offset;
+
+    // Arrow endpoints at avatar edge (directed toward/from control point)
+    var start=edgePt(fp.x,fp.y,mx,my,R+4);
+    var end=edgePt(tp.x,tp.y,mx,my,R+14);
+
+    var totalAmt=pm.flows.reduce(function(s,f){return s+f.amt;},0);
+    var gameList=pm.flows.map(function(f){return f.game;});
+    var gameStr=gameList.join(' + ');
+    if(gameStr.length>20)gameStr=gameList.map(function(g){return g.replace(' Play','').replace(' Clock','');}).join('+');
+
+    var color=pm.flows[0].color;
+    var mId=color==='#60c0ff'?'blu':color==='#7acc90'?'grn':color==='#c060ff'?'pur':color==='#e07030'?'org':color==='#ff6060'?'red':color==='#80d840'?'lim':'gld';
+
+    // Quadratic bezier path
+    var path='M'+start.x.toFixed(1)+','+start.y.toFixed(1)+' Q'+mx.toFixed(1)+','+my.toFixed(1)+' '+end.x.toFixed(1)+','+end.y.toFixed(1);
+    svg+='<path d="'+path+'" fill="none" stroke="'+color+'" stroke-width="3" stroke-opacity="0.88" marker-end="url(#ah-'+mId+')" />';
+
+    // Label at bezier midpoint (t=0.5): 0.25*P0 + 0.5*Ctrl + 0.25*P2
+    var lx=0.25*start.x+0.5*mx+0.25*end.x;
+    var ly=0.25*start.y+0.5*my+0.25*end.y;
+    // Offset label perpendicular (further from path center)
+    var lo=offset>0?14:16;
+    var lfx=lx+px*lo, lfy=ly+py*lo;
+
+    var amtStr='$'+totalAmt;
+    var bgW=Math.max(amtStr.length*9,gameStr.length*6.2)+18;
+    var bgH=36;
+    svg+='<rect x="'+(lfx-bgW/2).toFixed(1)+'" y="'+(lfy-bgH/2).toFixed(1)+'" width="'+bgW.toFixed(1)+'" height="'+bgH+'" rx="6" fill="rgba(0,10,4,0.93)" stroke="'+color+'" stroke-width="1" stroke-opacity="0.55"/>';
+    svg+='<text x="'+lfx.toFixed(1)+'" y="'+(lfy-4).toFixed(1)+'" text-anchor="middle" font-family="Courier New,monospace" font-size="14" font-weight="700" fill="'+color+'">'+amtStr+'</text>';
+    svg+='<text x="'+lfx.toFixed(1)+'" y="'+(lfy+11).toFixed(1)+'" text-anchor="middle" font-family="Courier New,monospace" font-size="9" fill="rgba(160,200,160,0.7)">'+gameStr+'</text>';
+  });
+
+  // Draw avatars on top of arrows
+  var avatarFills=['#0a2216','#0e1e0a','#0a1c1c','#1a1404'];
+  var ov=overall();
+  a.forEach(function(i,idx){
+    var p=pos[i];
+    var name=pn(i);
+    var initials=name.replace(/[^a-zA-Z ]/g,'').split(/\s+/).filter(Boolean).map(function(w){return w[0].toUpperCase();}).join('').slice(0,2)||('P'+(i+1));
+    var bal=ov[i]||0;
+    var balColor=bal>0?'#30f858':bal<0?'#ff5a5a':'#4a7050';
+
+    // Shadow ring
+    svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(R+6)+'" fill="rgba(0,0,0,0.4)"/>';
+    // Avatar circle
+    svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+R+'" fill="'+avatarFills[idx%4]+'" stroke="#c9991e" stroke-width="2.5"/>';
+    // Initials
+    svg+='<text x="'+p.x+'" y="'+p.y+'" text-anchor="middle" dominant-baseline="central" font-family="Courier New,monospace" font-size="20" font-weight="800" fill="#f0bf30">'+initials+'</text>';
+    // Name below avatar
+    var ny=p.y+R+20;
+    svg+='<text x="'+p.x+'" y="'+ny+'" text-anchor="middle" font-family="Courier New,monospace" font-size="12" font-weight="700" fill="#c9991e">'+name+'</text>';
+    // Net balance
+    svg+='<text x="'+p.x+'" y="'+(ny+17)+'" text-anchor="middle" font-family="Courier New,monospace" font-size="12" font-weight="700" fill="'+balColor+'">'+bal+'</text>';
+  });
+
+  svg+='</svg>';
+
+  // Legend
+  var legendGames=[];
+  flows.forEach(function(f){if(!legendGames.some(function(l){return l.game===f.game;}))legendGames.push({game:f.game,color:f.color});});
+  var legend='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #1a4028">';
+  legendGames.forEach(function(l){legend+='<div style="display:flex;align-items:center;gap:4px;font-size:10px;color:'+l.color+'"><span style="display:inline-block;width:18px;height:3px;background:'+l.color+';border-radius:2px"></span>'+l.game+'</div>';});
+  legend+='</div>';
+
+  return svg+legend;
+}
+
 function rFlow(){
   var a=ais();
   var h='<div id="ntf" class="ntf'+(nM?' on':'')+'">'+nM+'</div>';
@@ -506,7 +646,16 @@ function rFlow(){
   var hasAny=a.some(function(i){return Math.abs(ov[i])>0.4;});
   if(!hasAny)return h+'<div class="card"><p style="color:#4a7050">No bets settled yet. Enter scores and enable bets in Setup.</p></div>';
 
-  h+='<div style="font-size:10px;color:#4a7050;margin-bottom:14px;padding:8px 12px;background:rgba(201,153,30,.05);border:1px solid rgba(201,153,30,.12);border-radius:5px">💸 Every dollar, traced. Each section shows exactly who pays whom for that bet — then everything nets into the final settlements.</div>';
+  // Visual SVG diagram first
+  var visual=buildFlowVisual(a);
+  if(visual){
+    h+='<div class="card" style="margin-bottom:12px">';
+    h+='<div class="ct" style="margin-bottom:14px">Gross Money Flow</div>';
+    h+=visual;
+    h+='</div>';
+  }
+
+  h+='<div style="font-size:10px;color:#4a7050;margin-bottom:14px;padding:8px 12px;background:rgba(201,153,30,.05);border:1px solid rgba(201,153,30,.12);border-radius:5px">💸 Each arrow = one bet settled independently (gross). Final Settlements below net everything together into minimum payments.</div>';
 
   function flowArrow(fr,to,amt,color){
     color=color||'#f0bf30';
