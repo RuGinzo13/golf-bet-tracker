@@ -2,8 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>⛳ Golf Bet Tracker</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00130c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Golf Bets">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Courier New',Courier,monospace;background:#001e12;color:#f5edd5;min-height:100vh;font-size:13px}
@@ -94,7 +103,7 @@ var DEF=[{n:1,par:4,hcp:1},{n:2,par:5,hcp:13},{n:3,par:3,hcp:7},{n:4,par:4,hcp:3
 var C=DEF.map(function(h){return Object.assign({},h);});
 var GR=Array(4).fill(0).map(function(){return Array(18).fill('');});
 var BT={
-  nassau:{on:true,mus:[{p1:0,p2:1,front:5,back:5,tot:10}]},
+  nassau:{on:false,mus:[{p1:0,p2:1,front:5,back:5,tot:10}]},
   match:{on:false,mus:[{p1:0,p2:1,stake:10}]},
   wolf:{on:false,stake:2},s666:{on:false,stake:5},s531:{on:false,stake:1},
   p3c:{on:false,birdie:10,par:5,bogey:5},dots:{on:false,fwy:1,grn:1},
@@ -105,6 +114,7 @@ var DT=Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){r
 var JK=Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){return{gr:false,sa:false,ba:false,po:false};});});
 var P3C=Array(18).fill(0).map(function(){return{cp:null,tp:false};});
 var RF={roundPayer:null,roundAmt:0,bookPayer:null,bookAmt:0,feeExclude:[]};
+var uiState={dotsOpen:false,junkOpen:false};
 
 // ── Persistence ───────────────────────────────────────────────────────────────
 async function ldAll(){
@@ -1036,14 +1046,17 @@ function rSetup(){
   }
   h+='</div>';
 
-  // Wolf
-  h+='<div class="card"><div class="ct">Wolf'+(ais().length!==4?' <span style="font-size:9px;color:#c04020">⚠ 4 players req.</span>':'')+'<button class="tog '+(BT.wolf.on?'on':'off')+'" onclick="togBet(\'wolf\')">'+(BT.wolf.on?'ON':'OFF')+'</button></div>';
+  // Wolf (4-player only)
+  if(numP===4){
+  h+='<div class="card"><div class="ct">Wolf <button class="tog '+(BT.wolf.on?'on':'off')+'" onclick="togBet(\'wolf\')">'+(BT.wolf.on?'ON':'OFF')+'</button></div>';
   h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">One rotating Wolf per hole chooses to go lone (1v3) or pick a partner after seeing all tee shots.</div>';
   if(BT.wolf.on)h+='<div class="row"><div><div class="lbl">$ / Point</div><input type="number" min="0" style="width:78px" value="'+BT.wolf.stake+'" onchange="BT.wolf.stake=+this.value"></div></div><div class="info">LONE WOLF = 1v3, win/lose 3×. Pick partner = 2v2 best ball. Manage in Wolf tab.</div>';
   h+='</div>';
+  }
 
-  // 6/6/6
-  h+='<div class="card"><div class="ct">6/6/6'+(ais().length!==4?' <span style="font-size:9px;color:#c04020">⚠ 4 players req.</span>':'')+'<button class="tog '+(BT.s666.on?'on':'off')+'" onclick="togBet(\'s666\')">'+(BT.s666.on?'ON':'OFF')+'</button></div>';
+  // 6/6/6 (4-player only)
+  if(numP===4){
+  h+='<div class="card"><div class="ct">6/6/6 <button class="tog '+(BT.s666.on?'on':'off')+'" onclick="togBet(\'s666\')">'+(BT.s666.on?'ON':'OFF')+'</button></div>';
   h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">18 holes split into three 6-hole team segments with rotating partners; team with most holes wins each segment.</div>';
   if(BT.s666.on){
     h+='<div class="row"><div><div class="lbl">$ / Segment Win</div><input type="number" min="0" style="width:78px" value="'+BT.s666.stake+'" onchange="BT.s666.stake=+this.value"></div></div>';
@@ -1073,12 +1086,15 @@ function rSetup(){
     h+='<div class="info">Combined net score per hole · low team total wins hole · most holes wins segment.</div>';
   }
   h+='</div>';
+  } // end numP===4 (6/6/6)
 
-  // 5-3-1
-  h+='<div class="card"><div class="ct">5-3-1 (9 Point)'+(ais().length!==3?' <span style="font-size:9px;color:#c04020">⚠ 3 players req.</span>':'')+'<button class="tog '+(BT.s531.on?'on':'off')+'" onclick="togBet(\'s531\')">'+(BT.s531.on?'ON':'OFF')+'</button></div>';
+  // 5-3-1 (3-player only)
+  if(numP===3){
+  h+='<div class="card"><div class="ct">5-3-1 (9 Point) <button class="tog '+(BT.s531.on?'on':'off')+'" onclick="togBet(\'s531\')">'+(BT.s531.on?'ON':'OFF')+'</button></div>';
   h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Three-player points game — low net earns 5 pts, middle 3, high 1 per hole; point differences settle at the end.</div>';
   if(BT.s531.on)h+='<div class="row"><div><div class="lbl">$ / Pt Diff</div><input type="number" min="0" style="width:78px" value="'+BT.s531.stake+'" onchange="BT.s531.stake=+this.value"></div></div><div class="seg" style="font-size:10px;line-height:1.8">Low: 5 pts · Mid: 3 pts · High: 1 pt · All tie: 3/3/3 · Tie low: 4/4/1 · Tie high: 5/2/2</div>';
   h+='</div>';
+  } // end numP===3 (5-3-1)
 
   // Par 3 Clock
   h+='<div class="card"><div class="ct">Par 3 Clock <button class="tog '+(BT.p3c.on?'on':'off')+'" onclick="togBet(\'p3c\')">'+(BT.p3c.on?'ON':'OFF')+'</button></div>';
@@ -1087,15 +1103,15 @@ function rSetup(){
   h+='</div>';
 
   // Dots
-  h+='<div class="card"><div class="ct">Dots <button class="tog '+(BT.dots.on?'on':'off')+'" onclick="togBet(\'dots\')">'+(BT.dots.on?'ON':'OFF')+'</button></div>';
+  h+='<div class="card"><div class="ct">Dots <button class="tog '+(BT.dots.on?'on':'off')+'" onclick="togBet(\'dots\')">'+(BT.dots.on?'ON':'OFF')+'</button>'+(BT.dots.on?'<button class="btn sm" onclick="uiState.dotsOpen=!uiState.dotsOpen;render()" style="padding:3px 8px;font-size:10px;margin-left:6px">'+(uiState.dotsOpen?'▲ hide':'▼ settings')+'</button>':'')+'</div>';
   h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Earn a dot for hitting a fairway (par 4/5) or a birdie-or-better GIR; each dot is paid by all other players.</div>';
-  if(BT.dots.on)h+='<div class="row"><div><div class="lbl">Fairway $</div><input type="number" min="0" style="width:72px" value="'+BT.dots.fwy+'" onchange="BT.dots.fwy=+this.value"></div><div><div class="lbl">Green $</div><input type="number" min="0" style="width:72px" value="'+BT.dots.grn+'" onchange="BT.dots.grn=+this.value"></div></div><div class="info">FWY = hit fairway off tee (par 4/5 only) · GRN = GIR + made birdie putt or better</div>';
+  if(BT.dots.on&&uiState.dotsOpen)h+='<div class="row"><div><div class="lbl">Fairway $</div><input type="number" min="0" style="width:72px" value="'+BT.dots.fwy+'" onchange="BT.dots.fwy=+this.value"></div><div><div class="lbl">Green $</div><input type="number" min="0" style="width:72px" value="'+BT.dots.grn+'" onchange="BT.dots.grn=+this.value"></div></div><div class="info">FWY = hit fairway off tee (par 4/5 only) · GRN = GIR + made birdie putt or better</div>';
   h+='</div>';
 
   // Junk
-  h+='<div class="card"><div class="ct">Junk <button class="tog '+(BT.junk.on?'on':'off')+'" onclick="togBet(\'junk\')">'+(BT.junk.on?'ON':'OFF')+'</button></div>';
+  h+='<div class="card"><div class="ct">Junk <button class="tog '+(BT.junk.on?'on':'off')+'" onclick="togBet(\'junk\')">'+(BT.junk.on?'ON':'OFF')+'</button>'+(BT.junk.on?'<button class="btn sm" onclick="uiState.junkOpen=!uiState.junkOpen;render()" style="padding:3px 8px;font-size:10px;margin-left:6px">'+(uiState.junkOpen?'▲ hide':'▼ settings')+'</button>':'')+'</div>';
   h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Side payments for special shots: greenie (par 3 closest &amp; makes par+), sandy, barky, and polie — each paid by all others.</div>';
-  if(BT.junk.on){
+  if(BT.junk.on&&uiState.junkOpen){
     h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px;margin-bottom:4px">';
     [['greenie','Greenie $','Par 3 · closest to pin on green · par+'],['sandy','Sandy $','Par+ from greenside bunker'],['barky','Barky $','Par+ after hitting a tree'],['polie','Polie $','Bogey+ putt from beyond flagstick']].forEach(function(j){h+='<div><div class="lbl">'+j[1]+'</div><input type="number" min="0" style="width:72px" value="'+BT.junk[j[0]]+'" onchange="BT.junk.'+j[0]+'=+this.value"><div class="info">'+j[2]+'</div></div>';});
     h+='</div>';
@@ -1587,8 +1603,8 @@ function rHist(){
 // ── Actions ───────────────────────────────────────────────────────────────────
 function getTabs(){var a=ais(),ts=[{id:'setup',l:'Setup'},{id:'scores',l:'Scores'}];if(BT.dots.on||BT.junk.on||BT.p3c.on)ts.push({id:'extras',l:'Dots/Junk'});if(BT.wolf.on&&a.length===4)ts.push({id:'wolf',l:'Wolf'});ts.push({id:'results',l:'Results'},{id:'flow',l:'Money Flow'},{id:'hist',l:'History'});return ts;}
 function setTab(t){TAB=t;render();}
-function setNumP(n){numP=n;P.forEach(function(p,i){p.on=i<n;});render();}
-function togBet(k){BT[k].on=!BT[k].on;render();}
+function setNumP(n){numP=n;P.forEach(function(p,i){p.on=i<n;});if(n!==4){BT.wolf.on=false;BT.s666.on=false;}if(n!==3){BT.s531.on=false;}invalidateCalcCache();render();}
+function togBet(k){BT[k].on=!BT[k].on;if(!BT[k].on){if(k==='dots')uiState.dotsOpen=false;if(k==='junk')uiState.junkOpen=false;}render();}
 function addMu(k){BT[k].mus.push(k==='nassau'?{p1:0,p2:1,front:5,back:5,tot:10}:{p1:0,p2:1,stake:10});render();}
 function delMu(k,idx){BT[k].mus.splice(idx,1);render();}
 function setSI(pi,hi,v){
@@ -1678,6 +1694,12 @@ function render(){
 }
 
 ldAll().then(function(){if(profile)loggedIn=true;render();});
+// ── Service Worker registration ───────────────────────────────────────────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
 </script>
 </body>
 </html>
