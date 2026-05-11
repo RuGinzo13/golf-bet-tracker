@@ -941,70 +941,82 @@ function doDemo(){profile={name:'Demo',hcp:10};loggedIn=true;loginErr='';render(
 function doReset(){if(confirm('Reset profile? Rounds and golfer names are kept.'))storage.del('prof').then(function(){profile=null;loggedIn=false;render();});}
 
 // ── Profile Backup / Restore ─────────────────────────────────────────────────
-// Encodes a JS string as base64 safely (handles unicode player names)
+// ── Profile Backup / Restore helpers ─────────────────────────────────────────
+// Safe unicode base64 encode/decode
 function _b64enc(str){
   return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,function(m,p){return String.fromCharCode('0x'+p);}));
 }
 function _b64dec(b64){
   return decodeURIComponent(atob(b64).split('').map(function(c){return'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));
 }
-// Reads and validates restore data from the URL hash (#r=...)
-function parseRestoreHash(){
+// Reads restore payload from ?r= query string (primary) or #r= hash (legacy fallback).
+// iOS Messages strips # fragments, so we now use query strings.
+function parseRestoreData(){
   try{
-    var h=window.location.hash;
-    if(!h||!h.startsWith('#r='))return null;
-    var data=JSON.parse(_b64dec(h.slice(3)));
+    var encoded='';
+    // 1. Query string: ?r=... or ?...&r=...
+    var qs=window.location.search;
+    if(qs){var m=qs.match(/[?&]r=([^&]+)/);if(m)encoded=decodeURIComponent(m[1]);}
+    // 2. Hash fallback for any old links: #r=...
+    if(!encoded){var hsh=window.location.hash;if(hsh&&hsh.startsWith('#r='))encoded=hsh.slice(3);}
+    if(!encoded)return null;
+    var data=JSON.parse(_b64dec(encoded));
     if(!data||!data.profile||!data.profile.name)return null;
     return data;
   }catch(e){return null;}
 }
-// Called from the backup button in the header
+// Generates a restore URL and copies it to clipboard.
+// Strips full per-hole state from rounds to keep the URL short enough
+// for iMessage / WhatsApp (state can be 5-8 KB per round).
 function doBackup(){
-  var data={v:1,profile:profile,sG:sG,rounds:rounds};
+  var slimRounds=rounds.map(function(r){
+    return{id:r.id,ts:r.ts,date:r.date,course:r.course,players:r.players,hcps:r.hcps,results:r.results};
+  });
+  var data={v:2,profile:profile,sG:sG,rounds:slimRounds};
   try{
     var encoded=_b64enc(JSON.stringify(data));
-    var url=location.origin+location.pathname+'#r='+encoded;
+    var url=location.origin+location.pathname+'?r='+encoded;
     if(navigator.clipboard&&navigator.clipboard.writeText){
       navigator.clipboard.writeText(url).then(function(){
-        showN('Backup link copied! Open it on your phone and enter PIN 2254 to restore.');
-      }).catch(function(){prompt('Copy this restore link:',url);});
+        showN('Backup link copied! Text/email it to your phone, open it, enter PIN 2254.');
+      }).catch(function(){prompt('Copy this restore link (send to your phone):',url);});
     }else{
-      prompt('Copy this restore link:',url);
+      prompt('Copy this restore link (send to your phone):',url);
     }
   }catch(e){showN('Backup failed: '+e.message);}
 }
-// Called from the restore button on the login screen (URL hash flow)
+// Restore via URL (called from restore card on login screen)
 function doRestore(){
   var pinEl=document.getElementById('rpin');
   if(!pinEl)return;
   if(pinEl.value.trim()!=='2254'){loginErr='Incorrect PIN.';render();return;}
-  var data=parseRestoreHash();
-  if(!data){loginErr='Restore data missing or corrupted.';render();return;}
+  var data=parseRestoreData();
+  if(!data){loginErr='Restore data not found — make sure the full link loaded.';render();return;}
   _applyRestoreData(data);
 }
-// Called from the manual "paste a code" flow
+// Restore via manually pasted code
 function doRestoreCode(){
   var codeEl=document.getElementById('rcode'),pinEl=document.getElementById('rcpin');
   if(!codeEl||!pinEl)return;
   if(pinEl.value.trim()!=='2254'){loginErr='Incorrect PIN.';render();return;}
   try{
-    var data=JSON.parse(_b64dec(codeEl.value.trim()));
+    var raw=codeEl.value.trim();
+    // Accept either the full URL or just the encoded portion after ?r=
+    var encoded=raw.includes('?r=')?raw.split('?r=')[1].split('&')[0]:raw;
+    var data=JSON.parse(_b64dec(encoded));
     if(!data||!data.profile||!data.profile.name)throw new Error('Invalid backup code');
     _applyRestoreData(data);
-  }catch(e){loginErr='Could not read code — make sure you copied the full backup string.';render();}
+  }catch(e){loginErr='Could not read code. Copy the full link or just the part after ?r=';render();}
 }
 function _applyRestoreData(data){
   profile=data.profile;
   sG=data.sG||[];
   rounds=data.rounds||[];
-  var saves=[
-    storage.set('prof',JSON.stringify(profile)),
-    storage.set('sGolfers',JSON.stringify(sG))
-  ];
+  var saves=[storage.set('prof',JSON.stringify(profile)),storage.set('sGolfers',JSON.stringify(sG))];
   rounds.forEach(function(r){saves.push(storage.set(r.id,JSON.stringify(r)));});
   Promise.all(saves).then(function(){
     loggedIn=true;loginErr='';
-    history.replaceState(null,'',location.pathname); // strip hash from URL
+    history.replaceState(null,'',location.pathname); // strip ?r= from URL
     TAB='hist';render();
     showN('✓ Restored '+profile.name+'\'s profile with '+rounds.length+' round(s).');
   }).catch(function(e){loginErr='Save failed: '+e.message;render();});
@@ -1012,7 +1024,7 @@ function _applyRestoreData(data){
 
 // ── Login render ──────────────────────────────────────────────────────────────
 function rLogin(){
-  var restoreData=parseRestoreHash();
+  var restoreData=parseRestoreData();
   var h='<div style="background:#001208;min-height:100vh;padding:20px">';
   h+='<div style="text-align:center;padding:28px 0 18px"><div style="font-size:24px;color:#f0bf30;letter-spacing:3px;font-weight:500">⛳ GOLF BET TRACKER</div></div>';
 
@@ -1047,7 +1059,7 @@ function rLogin(){
   h+='<div style="margin-top:18px;border-top:1px solid #0d2a18;padding-top:14px">';
   h+='<div style="font-size:10px;color:#2a5030;letter-spacing:1px;text-align:center;cursor:pointer;padding:4px" onclick="var s=document.getElementById(\'mrc\');s.style.display=s.style.display===\'none\'?\'block\':\'none\'">▼ have a restore code?</div>';
   h+='<div id="mrc" style="display:none;margin-top:12px">';
-  h+='<div style="font-size:11px;color:#4a7050;margin-bottom:8px">Paste the backup code (everything after <span style="color:#c9991e">#r=</span> in the restore link):</div>';
+  h+='<div style="font-size:11px;color:#4a7050;margin-bottom:8px">Paste the full restore link, or just the part after <span style="color:#c9991e">?r=</span>:</div>';
   h+='<textarea id="rcode" style="width:100%;height:72px;background:#001208;border:1px solid #1a4028;border-radius:4px;color:#f5edd5;font:10px \'Courier New\';padding:6px;resize:vertical" placeholder="Paste code here..."></textarea>';
   h+='<div style="margin-top:8px"><div class="lbl">Owner PIN</div><input id="rcpin" class="bi" type="password" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" onkeydown="if(event.key===\'Enter\')doRestoreCode()"></div>';
   if(!restoreData&&loginErr)h+='<div class="ferr">⚠ '+loginErr+'</div>';
