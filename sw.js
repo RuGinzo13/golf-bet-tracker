@@ -1,7 +1,7 @@
 // Golf Bet Tracker — Service Worker
 // Cache-first strategy for the app shell; network-first for API calls.
 
-var CACHE = 'golf-bets-v2';
+var CACHE = 'golf-bets-v3';
 var SHELL = [
   './',
   './index.html',
