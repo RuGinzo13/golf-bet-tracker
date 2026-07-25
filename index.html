@@ -103,7 +103,7 @@ var DEF=[{n:1,par:4,hcp:1},{n:2,par:5,hcp:13},{n:3,par:3,hcp:7},{n:4,par:4,hcp:3
 var C=DEF.map(function(h){return Object.assign({},h);});
 var GR=Array(4).fill(0).map(function(){return Array(18).fill('');});
 var BT={
-  nassau:{on:false,mus:[{p1:0,p2:1,front:5,back:5,tot:10}]},
+  nassau:{on:false,mus:[{p1:0,p2:1,front:5,back:5,tot:10}],tmus:[]},
   match:{on:false,mus:[{p1:0,p2:1,stake:10}]},
   wolf:{on:false,stake:2},s666:{on:false,stake:5},s531:{on:false,stake:1},
   p3c:{on:false,birdie:10,par:5,bogey:5},dots:{on:false,fwy:1,grn:1},
@@ -234,6 +234,29 @@ function nassauHoles(p1,p2,from,to){
   }
   return{w1:w1,w2:w2,halved:halved,complete:true};
 }
+function nassauHolesTeam(t1,t2,from,to){
+  // Best-ball match play: each team's score per hole = lower net of the two teammates
+  var net=NET(),w1=0,w2=0,halved=0;
+  for(var h=from;h<=to;h++){
+    var n1a=net[t1[0]][h],n1b=net[t1[1]][h],n2a=net[t2[0]][h],n2b=net[t2[1]][h];
+    if(n1a==null||n1b==null||n2a==null||n2b==null)return{w1:w1,w2:w2,halved:halved,complete:false};
+    var b1=Math.min(n1a,n1b),b2=Math.min(n2a,n2b);
+    if(b1<b2)w1++;else if(b2<b1)w2++;else halved++;
+  }
+  return{w1:w1,w2:w2,halved:halved,complete:true};
+}
+function nassauLiveStateTeam(t1,t2,from,to){
+  var net=NET(),w1=0,w2=0,played=0;
+  for(var h=from;h<=to;h++){
+    var n1a=net[t1[0]][h],n1b=net[t1[1]][h],n2a=net[t2[0]][h],n2b=net[t2[1]][h];
+    if(n1a==null||n1b==null||n2a==null||n2b==null)continue;
+    played++;
+    var b1=Math.min(n1a,n1b),b2=Math.min(n2a,n2b);
+    if(b1<b2)w1++;else if(b2<b1)w2++;
+  }
+  var total=to-from+1,remaining=total-played,diff=w1-w2;
+  return{w1:w1,w2:w2,played:played,remaining:remaining,diff:diff,closed:played>0&&Math.abs(diff)>remaining};
+}
 function nassauCalc(){
   if(!BT.nassau.on)return null;
   var r={};ais().forEach(function(i){r[i]=0;});
@@ -244,7 +267,17 @@ function nassauCalc(){
       if(!res.complete)return;
       if(res.w1>res.w2){r[p1]+=seg[2];r[p2]-=seg[2];}
       else if(res.w2>res.w1){r[p2]+=seg[2];r[p1]-=seg[2];}
-      // equal holes won = push, no money moves
+    });
+  });
+  (BT.nassau.tmus||[]).forEach(function(mu){
+    var t1=mu.t1,t2=mu.t2;
+    if(!t1||!t2||t1.length!==2||t2.length!==2)return;
+    if(t1.concat(t2).some(function(p){return!P[p]||!P[p].on;}))return;
+    [[0,8,+mu.front],[9,17,+mu.back],[0,17,+mu.tot]].forEach(function(seg){
+      var res=nassauHolesTeam(t1,t2,seg[0],seg[1]);
+      if(!res.complete)return;
+      if(res.w1>res.w2){t1.forEach(function(p){r[p]+=seg[2];});t2.forEach(function(p){r[p]-=seg[2];});}
+      else if(res.w2>res.w1){t2.forEach(function(p){r[p]+=seg[2];});t1.forEach(function(p){r[p]-=seg[2];});}
     });
   });
   return r;
@@ -273,6 +306,16 @@ function buildNassauLiveHtml(){
     h+=' &nbsp;<span style="color:#4a7050">F('+fS.played+'):</span> '+fmtLiveState(fS,p1n,p2n);
     h+=' &nbsp;<span style="color:#4a7050">B('+bS.played+'):</span> '+fmtLiveState(bS,p1n,p2n);
     h+=' &nbsp;<span style="color:#4a7050">O('+oS.played+'):</span> '+fmtLiveState(oS,p1n,p2n);
+    h+='</div>';
+  });
+  (BT.nassau.tmus||[]).forEach(function(mu){
+    if(!mu.t1||!mu.t2||mu.t1.concat(mu.t2).some(function(p){return!P[p]||!P[p].on;}))return;
+    var t1n=pn(mu.t1[0])+'/'+pn(mu.t1[1]),t2n=pn(mu.t2[0])+'/'+pn(mu.t2[1]);
+    var fS=nassauLiveStateTeam(mu.t1,mu.t2,0,8),bS=nassauLiveStateTeam(mu.t1,mu.t2,9,17),oS=nassauLiveStateTeam(mu.t1,mu.t2,0,17);
+    h+='<div style="font-size:10px;color:#88c898;margin-bottom:3px">'+t1n+' <span style="color:#4a7050">vs</span> '+t2n+' <span style="color:#c9991e;font-size:8px">2v2</span>';
+    h+=' &nbsp;<span style="color:#4a7050">F('+fS.played+'):</span> '+fmtLiveState(fS,t1n,t2n);
+    h+=' &nbsp;<span style="color:#4a7050">B('+bS.played+'):</span> '+fmtLiveState(bS,t1n,t2n);
+    h+=' &nbsp;<span style="color:#4a7050">O('+oS.played+'):</span> '+fmtLiveState(oS,t1n,t2n);
     h+='</div>';
   });
   return h;
@@ -466,6 +509,16 @@ function buildShareText(){
         return sg[2]+': '+(w?w+' '+Math.max(res.w1,res.w2)+'-'+Math.min(res.w1,res.w2):'Halved');
       }).filter(Boolean).join(' · ');
       if(parts)betLines.push('Nassau ('+pn(mu.p1)+' v '+pn(mu.p2)+'): '+parts);
+    });
+    (BT.nassau.tmus||[]).forEach(function(mu){
+      if(!mu.t1||!mu.t2||mu.t1.concat(mu.t2).some(function(p){return!P[p]||!P[p].on;}))return;
+      var t1n=pn(mu.t1[0])+'/'+pn(mu.t1[1]),t2n=pn(mu.t2[0])+'/'+pn(mu.t2[1]);
+      var parts=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
+        var res=nassauHolesTeam(mu.t1,mu.t2,sg[0],sg[1]);if(!res.complete)return'';
+        var w=res.w1>res.w2?t1n:res.w2>res.w1?t2n:null;
+        return sg[2]+': '+(w?w+' '+Math.max(res.w1,res.w2)+'-'+Math.min(res.w1,res.w2):'Halved');
+      }).filter(Boolean).join(' · ');
+      if(parts)betLines.push('Nassau 2v2 ('+t1n+' v '+t2n+'): '+parts);
     });
   }
   if(BT.match.on){
@@ -697,6 +750,16 @@ function rFlow(){
           return sg[2]+': '+(w?'<span style="color:#30f858">'+w+'</span> '+Math.max(res.w1,res.w2)+'-'+Math.min(res.w1,res.w2):'<span style="color:#4a7050">Halved</span>');
         }).join(' &nbsp;·&nbsp; ');
         d+='<div style="font-size:9px;color:#7acc90;margin-bottom:6px;padding:5px 8px;background:rgba(0,40,16,.4);border-radius:4px">'+pn(mu.p1)+' v '+pn(mu.p2)+' &nbsp;|&nbsp; '+parts+'</div>';
+      });
+      (BT.nassau.tmus||[]).forEach(function(mu){
+        if(!mu.t1||!mu.t2||mu.t1.concat(mu.t2).some(function(p){return!P[p]||!P[p].on;}))return;
+        var t1n=pn(mu.t1[0])+'/'+pn(mu.t1[1]),t2n=pn(mu.t2[0])+'/'+pn(mu.t2[1]);
+        var parts=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
+          var res=nassauHolesTeam(mu.t1,mu.t2,sg[0],sg[1]);if(!res.complete)return sg[2]+':?';
+          var w=res.w1>res.w2?t1n:res.w2>res.w1?t2n:null;
+          return sg[2]+': '+(w?'<span style="color:#30f858">'+w+'</span> '+Math.max(res.w1,res.w2)+'-'+Math.min(res.w1,res.w2):'<span style="color:#4a7050">Halved</span>');
+        }).join(' &nbsp;·&nbsp; ');
+        d+='<div style="font-size:9px;color:#7acc90;margin-bottom:6px;padding:5px 8px;background:rgba(0,40,16,.4);border-radius:4px"><span style="color:#c9991e">2v2</span> '+t1n+' v '+t2n+' &nbsp;|&nbsp; '+parts+'</div>';
       });
       return d;
     }},
@@ -1096,6 +1159,30 @@ function rSetup(){
       h+='</div></div>';
     });
     h+='<button class="btn sm" style="margin-top:4px" onclick="addMu(\'nassau\')">+ Add Matchup</button>';
+    if(numP===4){
+      h+='<div style="margin-top:12px;padding-top:10px;border-top:1px solid #1a4028">';
+      h+='<div style="font-size:10px;font-weight:700;color:#c9991e;letter-spacing:.5px;margin-bottom:6px">2v2 Best Ball</div>';
+      h+='<div style="font-size:10px;color:#4a7050;margin-bottom:8px">Each team\'s score per hole = their lowest net. Match play across front, back, overall.</div>';
+      (BT.nassau.tmus||[]).forEach(function(mu,mi){
+        var op=a.length?a:[0,1,2,3];
+        h+='<div class="mu">';
+        h+='<div class="row" style="margin-bottom:6px;align-items:flex-end">';
+        h+='<div><div class="lbl">Team 1</div>';
+        h+='<select style="width:90px;margin-bottom:4px" onchange="setTmuPlayer('+mi+',1,0,+this.value)">'+op.map(function(i){return'<option value="'+i+'"'+(mu.t1[0]===i?' selected':'')+'>'+pn(i)+'</option>';}).join('')+'</select>';
+        h+='<br><select style="width:90px" onchange="setTmuPlayer('+mi+',1,1,+this.value)">'+op.map(function(i){return'<option value="'+i+'"'+(mu.t1[1]===i?' selected':'')+'>'+pn(i)+'</option>';}).join('')+'</select></div>';
+        h+='<div style="padding-bottom:4px;color:#c9991e;font-weight:700">vs</div>';
+        h+='<div><div class="lbl">Team 2</div>';
+        h+='<select style="width:90px;margin-bottom:4px" onchange="setTmuPlayer('+mi+',2,0,+this.value)">'+op.map(function(i){return'<option value="'+i+'"'+(mu.t2[0]===i?' selected':'')+'>'+pn(i)+'</option>';}).join('')+'</select>';
+        h+='<br><select style="width:90px" onchange="setTmuPlayer('+mi+',2,1,+this.value)">'+op.map(function(i){return'<option value="'+i+'"'+(mu.t2[1]===i?' selected':'')+'>'+pn(i)+'</option>';}).join('')+'</select></div>';
+        if((BT.nassau.tmus||[]).length>0)h+='<div style="padding-bottom:4px"><button class="btn del sm" onclick="delTmu('+mi+')">✕</button></div>';
+        h+='</div>';
+        h+='<div class="row" style="margin-bottom:0">';
+        [['front','Front $'],['back','Back $'],['tot','Overall $']].forEach(function(pair){h+='<div><div class="lbl">'+pair[1]+'</div><input type="number" min="0" style="width:68px" value="'+mu[pair[0]]+'" onchange="BT.nassau.tmus['+mi+'].'+pair[0]+'=+this.value"></div>';});
+        h+='</div></div>';
+      });
+      h+='<button class="btn sm" style="margin-top:4px" onclick="addTmu()">+ Add 2v2 Matchup</button>';
+      h+='</div>';
+    }
   }
   h+='</div>';
 
@@ -1431,6 +1518,17 @@ function rResults(){
       }).join('  ');
       nex+='<div style="font-size:9px;color:#7acc90;line-height:1.6">'+pn(mu.p1)+' v '+pn(mu.p2)+'<br><span style="color:#4a7050">'+segs+'</span></div>';
     });
+    (BT.nassau.tmus||[]).forEach(function(mu){
+      if(!mu.t1||!mu.t2||mu.t1.concat(mu.t2).some(function(p){return!P[p]||!P[p].on;}))return;
+      var t1n=pn(mu.t1[0])+'/'+pn(mu.t1[1]),t2n=pn(mu.t2[0])+'/'+pn(mu.t2[1]);
+      var segs=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
+        var res=nassauHolesTeam(mu.t1,mu.t2,sg[0],sg[1]);
+        if(!res.complete)return sg[2]+':?';
+        var lbl=res.w1>res.w2?t1n+' '+res.w1+'-'+res.w2:res.w2>res.w1?t2n+' '+res.w2+'-'+res.w1:'Tie '+res.w1+'-'+res.w2;
+        return sg[2]+':'+lbl;
+      }).join('  ');
+      nex+='<div style="font-size:9px;color:#7acc90;line-height:1.6"><span style="color:#c9991e">2v2</span> '+t1n+' v '+t2n+'<br><span style="color:#4a7050">'+segs+'</span></div>';
+    });
     cards.push(mkBetCard('Nassau',N,a,nex));
   }
   // Match
@@ -1678,6 +1776,9 @@ function setNumP(n){numP=n;P.forEach(function(p,i){p.on=i<n;});if(n!==4){BT.wolf
 function togBet(k){BT[k].on=!BT[k].on;if(!BT[k].on){if(k==='dots')uiState.dotsOpen=false;if(k==='junk')uiState.junkOpen=false;}render();}
 function addMu(k){BT[k].mus.push(k==='nassau'?{p1:0,p2:1,front:5,back:5,tot:10}:{p1:0,p2:1,stake:10});render();}
 function delMu(k,idx){BT[k].mus.splice(idx,1);render();}
+function addTmu(){var a=ais();if(!BT.nassau.tmus)BT.nassau.tmus=[];BT.nassau.tmus.push({t1:[a[0]||0,a[1]||1],t2:[a[2]||2,a[3]||3],front:5,back:5,tot:10});render();}
+function delTmu(idx){BT.nassau.tmus.splice(idx,1);render();}
+function setTmuPlayer(mi,team,slot,pi){var mu=BT.nassau.tmus[mi];if(team===1)mu.t1[slot]=pi;else mu.t2[slot]=pi;render();}
 function setSI(pi,hi,v){
   GR[pi][hi]=v;
   invalidateCalcCache();
