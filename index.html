@@ -106,7 +106,7 @@ var BT={
   nassau:{on:false,mus:[{p1:0,p2:1,front:5,back:5,tot:10}],tmus:[]},
   match:{on:false,mus:[{p1:0,p2:1,stake:10}]},
   wolf:{on:false,stake:2},s666:{on:false,stake:5},s531:{on:false,stake:1},
-  p3c:{on:false,birdie:10,par:5,bogey:5},dots:{on:false,fwy:1,grn:1},
+  p3c:{on:false,birdie:10,par:5,bogey:5},dots:{on:false,val:1,fwy:1,grn:1},
   junk:{on:false,greenie:2,sandy:2,barky:2,polie:2,birdie:2,eagle:5,hio:20}
 };
 var WD=Array(18).fill(0).map(function(){return{dec:null};});
@@ -428,30 +428,39 @@ function p3cCalc(){
   });
   return r;
 }
+function dotRate(){
+  // $ per dot. Falls back to the legacy fwy rate so saved rounds still price correctly.
+  var v=BT.dots.val;if(v==null)v=BT.dots.fwy;return(+v)||0;
+}
 function dotTotals(){
-  // Per-player dot count and dot value. Single source of truth for all dots displays/math.
-  var a=ais(),cnt={},val={};
-  a.forEach(function(i){cnt[i]=0;val[i]=0;});
+  // Per-player raw dot count. Leader is decided by COUNT, never by dollars.
+  var a=ais(),cnt={};
+  a.forEach(function(i){cnt[i]=0;});
   C.forEach(function(hole,hi){a.forEach(function(pi){
     var d=DT[hi][pi];
-    if(d.f&&hole.par>=4){cnt[pi]++;val[pi]+=BT.dots.fwy;}
-    if(d.g){cnt[pi]++;val[pi]+=BT.dots.grn;}
+    if(d.f&&hole.par>=4)cnt[pi]++;
+    if(d.g)cnt[pi]++;
   });});
-  var max=a.length?Math.max.apply(null,a.map(function(i){return val[i];})):0;
-  return{cnt:cnt,val:val,max:max,leaders:a.filter(function(i){return val[i]===max;})};
+  var max=a.length?Math.max.apply(null,a.map(function(i){return cnt[i];})):0;
+  return{cnt:cnt,max:max,leaders:a.filter(function(i){return cnt[i]===max;})};
 }
 function dotsCalc(){
   if(!BT.dots.on)return null;var a=ais(),r={};a.forEach(function(i){r[i]=0;});
   if(!a.length)return r;
-  // Only the dot leader(s) get paid. Each trailing player owes the gap between
-  // their dot total and the leading total; that pot is split among the leaders.
-  var dt=dotTotals(),pot=0;
+  // Only the dot leader(s) get paid. Each trailing player owes the count gap
+  // to the leader times the dot rate; that pot is split among the leaders.
+  var dt=dotTotals(),rate=dotRate(),pot=0;
   a.forEach(function(i){
-    if(dt.val[i]===dt.max)return;
-    var owed=dt.max-dt.val[i];
+    if(dt.cnt[i]===dt.max)return;
+    var owed=(dt.max-dt.cnt[i])*rate;
     r[i]-=owed;pot+=owed;
   });
-  if(pot>0&&dt.leaders.length){var share=pot/dt.leaders.length;dt.leaders.forEach(function(i){r[i]+=share;});}
+  // Split the pot in whole cents, handing the leftover cents to the first leaders,
+  // so the leaders' credits sum to the pot exactly and the round always reconciles.
+  if(pot>0&&dt.leaders.length){
+    var cents=Math.round(pot*100),n=dt.leaders.length,base=Math.floor(cents/n),extra=cents-base*n;
+    dt.leaders.forEach(function(i,k){r[i]+=(base+(k<extra?1:0))/100;});
+  }
   return r;
 }
 function junkCalc(){
@@ -675,6 +684,7 @@ function buildFlowVisual(a){
   svg+='</defs>';
 
   // Draw arrows first (behind avatars)
+  var placedLabels=[];
   Object.keys(pairMap).forEach(function(key){
     var pm=pairMap[key];
     var fr=pm.fr,to=pm.to;
@@ -716,6 +726,18 @@ function buildFlowVisual(a){
     var amtStr='$'+amt$(totalAmt);
     var bgW=Math.max(amtStr.length*9,gameStr.length*6.2)+18;
     var bgH=36;
+
+    // Crossing arrows can land labels on top of each other — slide this one
+    // along the perpendicular until it clears every label already placed.
+    for(var att=0;att<14;att++){
+      var clash=placedLabels.some(function(q){
+        return Math.abs(q.x-lfx)<(q.w+bgW)/2+5&&Math.abs(q.y-lfy)<(q.h+bgH)/2+5;
+      });
+      if(!clash)break;
+      var dir=att%2===0?1:-1,step=(Math.floor(att/2)+1)*(bgH*0.62);
+      lfx=lx+px*lo+px*step*dir;lfy=ly+py*lo+py*step*dir;
+    }
+    placedLabels.push({x:lfx,y:lfy,w:bgW,h:bgH});
     svg+='<rect x="'+(lfx-bgW/2).toFixed(1)+'" y="'+(lfy-bgH/2).toFixed(1)+'" width="'+bgW.toFixed(1)+'" height="'+bgH+'" rx="6" fill="rgba(0,10,4,0.93)" stroke="'+color+'" stroke-width="1" stroke-opacity="0.55"/>';
     svg+='<text x="'+lfx.toFixed(1)+'" y="'+(lfy-4).toFixed(1)+'" text-anchor="middle" font-family="Courier New,monospace" font-size="14" font-weight="700" fill="'+color+'">'+amtStr+'</text>';
     svg+='<text x="'+lfx.toFixed(1)+'" y="'+(lfy+11).toFixed(1)+'" text-anchor="middle" font-family="Courier New,monospace" font-size="9" fill="rgba(160,200,160,0.7)">'+gameStr+'</text>';
@@ -1315,7 +1337,7 @@ function rSetup(){
   // Dots
   h+='<div class="card"><div class="ct">Dots <button class="tog '+(BT.dots.on?'on':'off')+'" onclick="togBet(\'dots\')">'+(BT.dots.on?'ON':'OFF')+'</button>'+(BT.dots.on?'<button class="btn sm" onclick="uiState.dotsOpen=!uiState.dotsOpen;render()" style="padding:3px 8px;font-size:10px;margin-left:6px">'+(uiState.dotsOpen?'▲ hide':'▼ settings')+'</button>':'')+'</div>';
   h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Earn a dot for hitting a fairway (par 4/5) or a birdie-or-better GIR. Only the player(s) with the most dots get paid — everyone else owes the gap between their total and the leader\'s, split among the leaders.</div>';
-  if(BT.dots.on&&uiState.dotsOpen)h+='<div class="row"><div><div class="lbl">Fairway $</div><input type="number" min="0" style="width:72px" value="'+BT.dots.fwy+'" onchange="BT.dots.fwy=+this.value"></div><div><div class="lbl">Green $</div><input type="number" min="0" style="width:72px" value="'+BT.dots.grn+'" onchange="BT.dots.grn=+this.value"></div></div><div class="info">FWY = hit fairway off tee (par 4/5 only) · GRN = GIR + made birdie putt or better</div>';
+  if(BT.dots.on&&uiState.dotsOpen)h+='<div class="row"><div><div class="lbl">$ per Dot</div><input type="number" min="0" style="width:72px" value="'+dotRate()+'" onchange="BT.dots.val=+this.value"></div></div><div class="info">FWY = hit fairway off tee (par 4/5 only) · GRN = GIR + made birdie putt or better. Every dot counts the same — the gap to the leader is priced at this rate.</div>';
   h+='</div>';
 
   // Junk
@@ -1628,7 +1650,7 @@ function rResults(){
   if(D){
     var dtC=dotTotals(),exD='';
     a.forEach(function(i){
-      var isLd=dtC.leaders.indexOf(i)>-1,gap=dtC.max-dtC.val[i];
+      var isLd=dtC.leaders.indexOf(i)>-1,gap=(dtC.max-dtC.cnt[i])*dotRate();
       exD+='<div style="font-size:9px;line-height:1.7;color:'+(isLd?'#c9991e':'#a0c8a8')+'">'+pn(i)+' <span style="font-weight:700">'+dtC.cnt[i]+'</span> dots'+(isLd?' <span style="color:#30f858">★ leader</span>':' <span style="color:#4a7050">owes '+fm(-gap)+'</span>')+'</div>';
     });
     if(dtC.leaders.length>1)exD+='<div style="font-size:9px;color:#4a7050;margin-top:3px">Pot split '+dtC.leaders.length+' ways</div>';
