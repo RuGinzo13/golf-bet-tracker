@@ -125,10 +125,71 @@ async function ldAll(){
   try{var rl=await storage.list('rnd:');if(rl&&rl.keys&&rl.keys.length){rounds=[];for(var k of rl.keys){try{var r=await storage.get(k);if(r)rounds.push(JSON.parse(r.value));}catch(e){}}}rounds.sort(function(a,b){return b.ts-a.ts;});}catch(e){}
 }
 async function svG(){try{await storage.set('sGolfers',JSON.stringify(sG));}catch(e){}}
+// ── Saved-round recomputation ─────────────────────────────────────────────────
+// Rounds store a frozen `results` snapshot alongside their raw `state`. When a
+// bet rule changes, recompute the snapshot from state rather than trusting it.
+var DOTS_RULE_FLAG='dotsLeaderV1';
+// Missing sub-state must fall back to a NEUTRAL empty, never to the live globals —
+// otherwise a round with partial state gets scored using the round currently open.
+function cpState(v,fb){try{return v==null?fb:JSON.parse(JSON.stringify(v));}catch(e){return fb;}}
+function emptyDT(){return Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){return{f:false,g:false};});});}
+function emptyJK(){return Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){return{gr:false,sa:false,ba:false,po:false};});});}
+function emptyP3C(){return Array(18).fill(0).map(function(){return{cp:null,tp:false};});}
+function emptyWD(){return Array(18).fill(0).map(function(){return{dec:null};});}
+function withSavedState(s,fn){
+  var bk={C:C,GR:GR,BT:BT,DT:DT,JK:JK,P3C:P3C,WD:WD,P:P,cN:cN,numP:numP,RF:RF};
+  try{
+    C=cpState(s.C,[]);GR=cpState(s.GR,[]);BT=cpState(s.BT,{});P=cpState(s.P,[]);
+    DT=cpState(s.DT,emptyDT());JK=cpState(s.JK,emptyJK());
+    P3C=cpState(s.P3C,emptyP3C());WD=cpState(s.WD,emptyWD());
+    RF=cpState(s.RF,{roundPayer:null,roundAmt:0,bookPayer:null,bookAmt:0,feeExclude:[]});
+    cN=s.cN||'';numP=s.numP||2;
+    invalidateCalcCache();
+    return fn();
+  }finally{
+    C=bk.C;GR=bk.GR;BT=bk.BT;DT=bk.DT;JK=bk.JK;P3C=bk.P3C;WD=bk.WD;P=bk.P;
+    cN=bk.cN;numP=bk.numP;RF=bk.RF;
+    invalidateCalcCache();
+  }
+}
+function roundResultsFromState(rd){
+  if(!rd||!rd.state)return null;
+  var s=rd.state;
+  // Only score a round whose own state is complete enough to trust.
+  if(!Array.isArray(s.C)||!s.C.length)return null;
+  if(!Array.isArray(s.GR)||!Array.isArray(s.P)||!s.P.length)return null;
+  if(!s.BT||typeof s.BT!=='object')return null;
+  return withSavedState(s,function(){
+    var a=ais();if(!a.length)return null;
+    var ov=overall(),res={};
+    a.forEach(function(i){res[pn(i)]=Math.round((ov[i]||0)*100)/100;});
+    return res;
+  });
+}
+// Re-price recent rounds under the current Dots rule. Rounds older than the
+// window keep the numbers they were settled on; each round migrates only once.
+async function migrateRecentRounds(){
+  var cutoff=Date.now()-7*24*60*60*1000,changed=0;
+  for(var i=0;i<rounds.length;i++){
+    var rd=rounds[i];
+    if(!rd||!rd.state||!rd.ts||rd.ts<cutoff)continue;
+    if(rd[DOTS_RULE_FLAG])continue;
+    var fresh=null;
+    try{fresh=roundResultsFromState(rd);}catch(e){continue;}
+    if(!fresh)continue;
+    var diff=JSON.stringify(fresh)!==JSON.stringify(rd.results);
+    rd.results=fresh;rd[DOTS_RULE_FLAG]=true;
+    if(diff)changed++;
+    try{await storage.set(rd.id,JSON.stringify(rd));}catch(e){}
+  }
+  if(changed)cloudSyncBg();
+  return changed;
+}
 async function svRound(){
   var a=ais(),ov=overall();
   var newState=JSON.parse(JSON.stringify({C:C,GR:GR,BT:BT,DT:DT,JK:JK,P3C:P3C,WD:WD,P:P,cN:cN,numP:numP,RF:RF}));
-  var results={};a.forEach(function(i){results[pn(i)]=Math.round(ov[i]||0);});
+  // Keep cents — split pots produce fractional balances that must still net to zero.
+  var results={};a.forEach(function(i){results[pn(i)]=Math.round((ov[i]||0)*100)/100;});
   if(editingRoundId){
     // Update existing round in-place
     var idx=rounds.findIndex(function(r){return r.id===editingRoundId;});
@@ -138,6 +199,7 @@ async function svRound(){
       rounds[idx].players=a.map(pn);
       rounds[idx].hcps=a.map(function(i){return P[i].hcp;});
       rounds[idx].course=cN||rounds[idx].course;
+      rounds[idx][DOTS_RULE_FLAG]=true; // already priced under the current rules
       try{await storage.set(rounds[idx].id,JSON.stringify(rounds[idx]));showN('Round updated!');cloudSyncBg();}catch(e){showN('Save failed');}
     }
   }else{
@@ -150,6 +212,7 @@ async function svRound(){
       results:results,
       state:newState
     };
+    rd[DOTS_RULE_FLAG]=true; // already priced under the current rules
     try{await storage.set(rd.id,JSON.stringify(rd));rounds.unshift(rd);editingRoundId=rd.id;showN('Round saved!');cloudSyncBg();}catch(e){showN('Save failed');}
   }
   render();
@@ -1129,6 +1192,8 @@ async function doLogin(){
     loggedIn=true;loginErr='';ensureProfileInRoster();TAB='hist';
     _loggingIn=false;render();
     showN('Welcome back, '+profile.name+'! '+rounds.length+' round(s) loaded.');
+    // Cloud rounds arrive with whatever results they were saved under — re-price recent ones.
+    try{var mg=await migrateRecentRounds();if(mg)render();}catch(e){}
   }catch(cloudErr){
     var msg=cloudErr.message||'';
     if(msg==='No profile found for this username'){
@@ -1955,7 +2020,13 @@ function render(){
   var ntf=document.getElementById('ntf');if(ntf&&nM){ntf.textContent=nM;ntf.className='ntf on';}
 }
 
-ldAll().then(function(){if(profile)loggedIn=true;render();});
+ldAll().then(function(){
+  if(profile)loggedIn=true;
+  render();
+  return migrateRecentRounds();
+}).then(function(n){
+  if(n){render();showN(n+' recent round'+(n>1?'s':'')+' re-scored under the new Dots rule');}
+}).catch(function(){});
 // ── Service Worker registration ───────────────────────────────────────────────
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
