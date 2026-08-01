@@ -290,7 +290,7 @@ function nassauLiveState(p1,p2,from,to){
 }
 function fmtLiveState(st,p1n,p2n){
   if(st.played===0)return'<span style="color:#2a5030">—</span>';
-  if(st.closed){var wn=st.diff>0?p1n:p2n;return'<span style="color:#30f858;font-weight:700">'+wn+' '+Math.abs(st.diff)+'&amp;'+st.remaining+'</span>';}
+  if(st.closed){var wn=st.diff>0?p1n:p2n;return'<span style="color:#30f858;font-weight:700">'+wn+' '+Math.abs(st.diff)+(st.remaining>0?'&amp;'+st.remaining:' UP')+'</span>';}
   if(st.diff===0)return'<span style="color:#7acc90">All Sq</span>';
   var wn=st.diff>0?p1n:p2n;
   return'<span style="color:#30f858">'+wn+' '+Math.abs(st.diff)+'UP</span>';
@@ -362,22 +362,45 @@ function set666Team(si,slot,pi){
   seg.t2=a.filter(function(p){return t1.indexOf(p)===-1;});
   render();
 }
+function s666SegState(seg,si){
+  // Single source of truth for one 6-hole segment — best-ball NET match play.
+  // Each team's hole score is the lower net of its two partners.
+  var net=NET(),t1=seg.t1,t2=seg.t2,w1=0,w2=0,played=0;
+  for(var h=si*6;h<(si+1)*6;h++){
+    if(t1.concat(t2).some(function(p){return net[p][h]==null;}))continue;
+    played++;
+    var s1=Math.min(net[t1[0]][h],net[t1[1]][h]),s2=Math.min(net[t2[0]][h],net[t2[1]][h]);
+    if(s1<s2)w1++;else if(s2<s1)w2++;
+  }
+  var remaining=6-played,diff=w1-w2;
+  return{w1:w1,w2:w2,played:played,remaining:remaining,diff:diff,closed:played>0&&Math.abs(diff)>remaining};
+}
 function s666Calc(){
   var a=ais();if(!BT.s666.on||a.length!==4)return null;
   ensure666Segs();
-  var sk=+BT.s666.stake,net=NET(),r={};a.forEach(function(i){r[i]=0;});
+  var sk=+BT.s666.stake,r={};a.forEach(function(i){r[i]=0;});
   BT.s666.segs.forEach(function(seg,si){
-    var t1=seg.t1,t2=seg.t2,hw=[0,0];
-    for(var h=si*6;h<(si+1)*6;h++){
-      if(t1.concat(t2).some(function(p){return net[p][h]==null;}))continue;
-      var s1=Math.min(net[t1[0]][h],net[t1[1]][h]),s2=Math.min(net[t2[0]][h],net[t2[1]][h]);
-      if(s1<s2)hw[0]++;else if(s2<s1)hw[1]++;
-    }
-    if(hw[0]>hw[1]){t1.forEach(function(p){r[p]+=sk;});t2.forEach(function(p){r[p]-=sk;});}
-    else if(hw[1]>hw[0]){t2.forEach(function(p){r[p]+=sk;});t1.forEach(function(p){r[p]-=sk;});}
+    var st=s666SegState(seg,si);
+    if(st.w1>st.w2){seg.t1.forEach(function(p){r[p]+=sk;});seg.t2.forEach(function(p){r[p]-=sk;});}
+    else if(st.w2>st.w1){seg.t2.forEach(function(p){r[p]+=sk;});seg.t1.forEach(function(p){r[p]-=sk;});}
   });
   return r;
 }
+function build666LiveHtml(){
+  var a=ais();if(!BT.s666.on||a.length!==4)return'';
+  ensure666Segs();
+  var h='';
+  ['H1–6','H7–12','H13–18'].forEach(function(lbl,si){
+    var seg=BT.s666.segs[si],st=s666SegState(seg,si);
+    var t1n=pn(seg.t1[0])+'/'+pn(seg.t1[1]),t2n=pn(seg.t2[0])+'/'+pn(seg.t2[1]);
+    h+='<div style="font-size:10px;color:#88c898;margin-bottom:3px">';
+    h+='<span style="color:#4a7050">'+lbl+'</span> '+t1n+' <span style="color:#4a7050">vs</span> '+t2n;
+    h+=' &nbsp;<span style="color:#4a7050">('+st.played+'/6):</span> '+fmtLiveState(st,t1n,t2n);
+    h+='</div>';
+  });
+  return h;
+}
+function update666Live(){var el=document.getElementById('s666-live');if(el)el.innerHTML=build666LiveHtml();}
 function s531Pts(){
   var a=ais(),net=NET(),pts={};a.forEach(function(i){pts[i]=0;});
   C.forEach(function(_,hi){var sc=a.map(function(i){return{i:i,v:net[i][hi]};});if(sc.some(function(x){return x.v==null;}))return;sc.sort(function(x,y){return x.v-y.v;});var pp=sc[0].v===sc[2].v?[3,3,3]:sc[0].v===sc[1].v?[4,4,1]:sc[1].v===sc[2].v?[5,2,2]:[5,3,1];pp.forEach(function(p,ri){pts[sc[ri].i]+=p;});});
@@ -784,9 +807,8 @@ function rFlow(){
       if(!BT.s666.segs)return'';
       var d='';
       ['H1–6','H7–12','H13–18'].forEach(function(lbl,si){
-        var seg=BT.s666.segs[si],t1=seg.t1,t2=seg.t2,hw=[0,0];
-        for(var hh=si*6;hh<si*6+6;hh++){if(t1.concat(t2).some(function(p){return net[p][hh]==null;}))continue;var s1=net[t1[0]][hh]+net[t1[1]][hh],s2=net[t2[0]][hh]+net[t2[1]][hh];if(s1<s2)hw[0]++;else if(s2<s1)hw[1]++;}
-        d+='<div style="font-size:9px;color:#7acc90;margin-bottom:4px;padding:4px 8px;background:rgba(0,40,16,.4);border-radius:4px">'+lbl+': '+pn(t1[0])+'&amp;'+pn(t1[1])+' <span style="color:#c9991e;font-weight:700">'+hw[0]+'-'+hw[1]+'</span> '+pn(t2[0])+'&amp;'+pn(t2[1])+'</div>';
+        var seg=BT.s666.segs[si],t1=seg.t1,t2=seg.t2,st=s666SegState(seg,si);
+        d+='<div style="font-size:9px;color:#7acc90;margin-bottom:4px;padding:4px 8px;background:rgba(0,40,16,.4);border-radius:4px">'+lbl+': '+pn(t1[0])+'&amp;'+pn(t1[1])+' <span style="color:#c9991e;font-weight:700">'+st.w1+'-'+st.w2+'</span> '+pn(t2[0])+'&amp;'+pn(t2[1])+'</div>';
       });
       return d;
     }},
@@ -1368,11 +1390,16 @@ function rScores(){
   });
   h+='</tbody></table></div>';
 
-  // Live Nassau match state
+  // Live match state — label sits outside the update target so it survives innerHTML refresh
   if(BT.nassau.on){
-    h+='<div id="nassau-live" style="padding:8px 4px 2px;border-top:1px solid #1a4028;margin-top:6px">';
-    h+='<span style="font-size:9px;font-weight:700;color:#c9991e;letter-spacing:1.5px;text-transform:uppercase;margin-right:10px">Nassau</span>';
-    h+=buildNassauLiveHtml()+'</div>';
+    h+='<div style="padding:8px 4px 2px;border-top:1px solid #1a4028;margin-top:6px">';
+    h+='<div style="font-size:9px;font-weight:700;color:#c9991e;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">Nassau</div>';
+    h+='<div id="nassau-live">'+buildNassauLiveHtml()+'</div></div>';
+  }
+  if(BT.s666.on&&a.length===4){
+    h+='<div style="padding:8px 4px 2px;border-top:1px solid #1a4028;margin-top:6px">';
+    h+='<div style="font-size:9px;font-weight:700;color:#c9991e;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">6/6/6 — Best Ball Net</div>';
+    h+='<div id="s666-live">'+build666LiveHtml()+'</div></div>';
   }
   h+='</div>';
 
@@ -1561,13 +1588,8 @@ function rResults(){
   if(S6){
     var ex6='';
     ['H1-6','H7-12','H13-18'].forEach(function(lbl,si){
-      var seg=BT.s666.segs[si],t1=seg.t1,t2=seg.t2,hw=[0,0];
-      for(var hh=si*6;hh<si*6+6;hh++){
-        if(t1.concat(t2).some(function(p){return net[p][hh]==null;}))continue;
-        var s1=net[t1[0]][hh]+net[t1[1]][hh],s2=net[t2[0]][hh]+net[t2[1]][hh];
-        if(s1<s2)hw[0]++;else if(s2<s1)hw[1]++;
-      }
-      ex6+='<div style="font-size:9px;color:#a0c8a8;line-height:1.7"><span style="color:#4a7050">'+lbl+'</span> '+pn(t1[0])+'&amp;'+pn(t1[1])+' <span style="color:#c9991e;font-weight:700">'+hw[0]+'-'+hw[1]+'</span> '+pn(t2[0])+'&amp;'+pn(t2[1])+'</div>';
+      var seg=BT.s666.segs[si],t1=seg.t1,t2=seg.t2,st=s666SegState(seg,si);
+      ex6+='<div style="font-size:9px;color:#a0c8a8;line-height:1.7"><span style="color:#4a7050">'+lbl+'</span> '+pn(t1[0])+'&amp;'+pn(t1[1])+' <span style="color:#c9991e;font-weight:700">'+st.w1+'-'+st.w2+'</span> '+pn(t2[0])+'&amp;'+pn(t2[1])+'</div>';
     });
     cards.push(mkBetCard('6/6/6',S6,a,ex6));
   }
@@ -1837,6 +1859,7 @@ function updateScoreCell(pi,hi){
   updateRowTotals(pi,hi<9?0:1);
   updateRowTotals(pi,2);
   updateNassauLive();
+  update666Live();
 }
 
 // Updates a gross/net total cell in-place. nine=0 front, nine=1 back, nine=2 full round
