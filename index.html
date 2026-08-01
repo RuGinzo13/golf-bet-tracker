@@ -214,7 +214,9 @@ function NET(){
 }
 function pn(i){return((P[i]&&P[i].name)||'').trim()||'P'+(i+1);}
 function sC(d){return d<=-2?'#f5a030':d===-1?'#ff3030':d===0?'#60e030':d===1?'#30aaff':'#c060ff';}
-function fm(v){v=Math.round(v);return v===0?'$0':(v>0?'+':'-')+'$'+Math.abs(v);}
+// Money formatting — shows cents only when an amount is fractional (split pots can be odd).
+function amt$(v){var r=Math.round(v*100)/100;return Math.abs(r)%1===0?String(Math.abs(r)):Math.abs(r).toFixed(2);}
+function fm(v){var r=Math.round(v*100)/100;return Math.abs(r)<0.005?'$0':(r>0?'+':'-')+'$'+amt$(r);}
 function nassauStrokes(p1i,p2i){
   if(!P[p1i]||!P[p2i])return'';
   var mh=minH(),s1=Math.max(0,P[p1i].hcp-mh),s2=Math.max(0,P[p2i].hcp-mh);
@@ -426,9 +428,30 @@ function p3cCalc(){
   });
   return r;
 }
+function dotTotals(){
+  // Per-player dot count and dot value. Single source of truth for all dots displays/math.
+  var a=ais(),cnt={},val={};
+  a.forEach(function(i){cnt[i]=0;val[i]=0;});
+  C.forEach(function(hole,hi){a.forEach(function(pi){
+    var d=DT[hi][pi];
+    if(d.f&&hole.par>=4){cnt[pi]++;val[pi]+=BT.dots.fwy;}
+    if(d.g){cnt[pi]++;val[pi]+=BT.dots.grn;}
+  });});
+  var max=a.length?Math.max.apply(null,a.map(function(i){return val[i];})):0;
+  return{cnt:cnt,val:val,max:max,leaders:a.filter(function(i){return val[i]===max;})};
+}
 function dotsCalc(){
-  if(!BT.dots.on)return null;var a=ais(),r={},n=a.length-1;a.forEach(function(i){r[i]=0;});
-  C.forEach(function(hole,hi){a.forEach(function(pi){var d=DT[hi][pi];if(d.f&&hole.par>=4){r[pi]+=BT.dots.fwy*n;a.filter(function(j){return j!==pi;}).forEach(function(j){r[j]-=BT.dots.fwy;});}if(d.g){r[pi]+=BT.dots.grn*n;a.filter(function(j){return j!==pi;}).forEach(function(j){r[j]-=BT.dots.grn;});}});});
+  if(!BT.dots.on)return null;var a=ais(),r={};a.forEach(function(i){r[i]=0;});
+  if(!a.length)return r;
+  // Only the dot leader(s) get paid. Each trailing player owes the gap between
+  // their dot total and the leading total; that pot is split among the leaders.
+  var dt=dotTotals(),pot=0;
+  a.forEach(function(i){
+    if(dt.val[i]===dt.max)return;
+    var owed=dt.max-dt.val[i];
+    r[i]-=owed;pot+=owed;
+  });
+  if(pot>0&&dt.leaders.length){var share=pot/dt.leaders.length;dt.leaders.forEach(function(i){r[i]+=share;});}
   return r;
 }
 function junkCalc(){
@@ -473,11 +496,13 @@ function overall(){
   return t;
 }
 function settleDebts(ov,a){
-  var eps=0.4;
-  var cr=a.filter(function(i){return ov[i]>eps;}).map(function(i){return{i:i,v:Math.round(ov[i])};}).sort(function(a,b){return b.v-a.v;});
-  var db=a.filter(function(i){return ov[i]<-eps;}).map(function(i){return{i:i,v:-Math.round(ov[i])};}).sort(function(a,b){return b.v-a.v;});
+  // Work in integer cents so split pots (e.g. $3.50) settle exactly and
+  // credits always match debits — rounding each side to whole dollars did not.
+  var eps=0.005;
+  var cr=a.filter(function(i){return ov[i]>eps;}).map(function(i){return{i:i,v:Math.round(ov[i]*100)};}).sort(function(a,b){return b.v-a.v;});
+  var db=a.filter(function(i){return ov[i]<-eps;}).map(function(i){return{i:i,v:-Math.round(ov[i]*100)};}).sort(function(a,b){return b.v-a.v;});
   var tx=[];
-  while(cr.length&&db.length){var c=cr[0],d=db[0],amt=Math.min(c.v,d.v);if(amt>0)tx.push({fr:d.i,to:c.i,amt:amt});c.v-=amt;d.v-=amt;if(c.v<eps)cr.shift();if(d.v<eps)db.shift();}
+  while(cr.length&&db.length){var c=cr[0],d=db[0],amt=Math.min(c.v,d.v);if(amt>0)tx.push({fr:d.i,to:c.i,amt:amt/100});c.v-=amt;d.v-=amt;if(c.v<1)cr.shift();if(d.v<1)db.shift();}
   return tx;
 }
 
@@ -504,7 +529,7 @@ function mkSettleTxns(txns,compact){
     h+='<div style="display:flex;align-items:center;gap:8px;padding:'+(compact?'7px 10px':'9px 12px')+';margin-bottom:6px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid #1a3820">';
     h+='<span class="neg" style="font-size:'+(compact?'13px':'14px')+';font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.fr)+'</span>';
     h+='<span style="font-size:10px;color:#4a7050;white-space:nowrap">owes</span>';
-    h+='<span style="font-size:'+(compact?'18px':'22px')+';font-weight:700;color:#f0bf30;min-width:'+(compact?'52px':'60px')+';text-align:center">$'+t.amt+'</span>';
+    h+='<span style="font-size:'+(compact?'18px':'22px')+';font-weight:700;color:#f0bf30;min-width:'+(compact?'52px':'60px')+';text-align:center">$'+amt$(t.amt)+'</span>';
     h+='<span style="font-size:10px;color:#4a7050;white-space:nowrap">to</span>';
     h+='<span class="pos" style="font-size:'+(compact?'13px':'14px')+';font-weight:700;flex:1;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.to)+'</span>';
     h+='</div>';
@@ -559,7 +584,7 @@ function buildShareText(){
       betLines.push('Match ('+pn(mu.p1)+' v '+pn(mu.p2)+'): '+(ldr?(abs>rem?pn(ldr)+' wins '+abs+'&'+rem:pn(ldr)+' '+abs+'UP'):'All Square'));
     });
   }
-  if(BT.dots.on&&dotsCalc()){var ds2=[];a.forEach(function(i){var dc=C.reduce(function(n,hole,hi){return n+(DT[hi][i].f&&hole.par>=4?1:0)+(DT[hi][i].g?1:0);},0);if(dc>0)ds2.push(pn(i)+' ×'+dc);});if(ds2.length)betLines.push('Dots: '+ds2.join(', '));}
+  if(BT.dots.on&&dotsCalc()){var dtS=dotTotals(),ds2=[];a.forEach(function(i){if(dtS.cnt[i]>0)ds2.push(pn(i)+' ×'+dtS.cnt[i]+(dtS.leaders.indexOf(i)>-1?' (leader)':''));});if(ds2.length)betLines.push('Dots: '+ds2.join(', '));}
   if(BT.junk.on&&junkCalc()){var js=[];a.forEach(function(i){var jc=C.reduce(function(n,hole,hi){var j=JK[hi][i],g=parseInt(GR[i][hi]);return n+(j.gr&&hole.par===3?1:0)+(j.sa?1:0)+(j.ba?1:0)+(j.po?1:0)+(!isNaN(g)&&g===hole.par-1?1:0)+(!isNaN(g)&&g===hole.par-2?1:0)+(!isNaN(g)&&g===1?1:0);},0);if(jc>0)js.push(pn(i)+' ×'+jc);});if(js.length)betLines.push('Junk: '+js.join(', '));}
   if(betLines.length){lines.push('🎯 Bets');betLines.forEach(function(l){lines.push('  '+l);});lines.push('');}
   var bt=betsTotal();
@@ -688,7 +713,7 @@ function buildFlowVisual(a){
     var lo=offset>0?14:16;
     var lfx=lx+px*lo, lfy=ly+py*lo;
 
-    var amtStr='$'+totalAmt;
+    var amtStr='$'+amt$(totalAmt);
     var bgW=Math.max(amtStr.length*9,gameStr.length*6.2)+18;
     var bgH=36;
     svg+='<rect x="'+(lfx-bgW/2).toFixed(1)+'" y="'+(lfy-bgH/2).toFixed(1)+'" width="'+bgW.toFixed(1)+'" height="'+bgH+'" rx="6" fill="rgba(0,10,4,0.93)" stroke="'+color+'" stroke-width="1" stroke-opacity="0.55"/>';
@@ -716,7 +741,7 @@ function buildFlowVisual(a){
     var ny=p.y+R+20;
     svg+='<text x="'+p.x+'" y="'+ny+'" text-anchor="middle" font-family="Courier New,monospace" font-size="12" font-weight="700" fill="#c9991e">'+name+'</text>';
     // Net balance
-    svg+='<text x="'+p.x+'" y="'+(ny+17)+'" text-anchor="middle" font-family="Courier New,monospace" font-size="12" font-weight="700" fill="'+balColor+'">'+bal+'</text>';
+    svg+='<text x="'+p.x+'" y="'+(ny+17)+'" text-anchor="middle" font-family="Courier New,monospace" font-size="12" font-weight="700" fill="'+balColor+'">'+fm(bal)+'</text>';
   });
 
   svg+='</svg>';
@@ -757,7 +782,7 @@ function rFlow(){
     h2+='<div style="font-size:12px;font-weight:700;color:#ff9090">'+pn(fr)+'</div>';
     h2+='<div style="font-size:9px;color:#4a7050;margin-top:2px">pays</div></div>';
     h2+='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:76px;background:rgba(0,18,8,.6);border-left:1px solid rgba(255,255,255,.06);border-right:1px solid rgba(255,255,255,.06);padding:6px 4px">';
-    h2+='<div style="font-size:17px;font-weight:700;color:'+color+';line-height:1.1">$'+amt+'</div>';
+    h2+='<div style="font-size:17px;font-weight:700;color:'+color+';line-height:1.1">$'+amt$(amt)+'</div>';
     h2+='<div style="font-size:18px;color:'+color+';line-height:1">→</div></div>';
     h2+='<div style="flex:1;background:rgba(48,248,88,.06);padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center">';
     h2+='<div style="font-size:12px;font-weight:700;color:#30f858">'+pn(to)+'</div>';
@@ -862,7 +887,7 @@ function rFlow(){
       h2+='<div style="font-size:14px;font-weight:700;color:#ff9090">'+pn(t.fr)+'</div>';
       h2+='<div style="font-size:9px;color:#4a7050;margin-top:3px">pays</div></div>';
       h2+='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:88px;background:rgba(0,18,8,.7);border-left:1px solid rgba(240,191,48,.2);border-right:1px solid rgba(240,191,48,.2);padding:8px 4px">';
-      h2+='<div style="font-size:22px;font-weight:700;color:#f0bf30;line-height:1.1">$'+t.amt+'</div>';
+      h2+='<div style="font-size:22px;font-weight:700;color:#f0bf30;line-height:1.1">$'+amt$(t.amt)+'</div>';
       h2+='<div style="font-size:20px;color:#f0bf30;line-height:1">→</div></div>';
       h2+='<div style="flex:1;background:rgba(48,248,88,.08);padding:12px 14px;text-align:center;display:flex;flex-direction:column;justify-content:center">';
       h2+='<div style="font-size:14px;font-weight:700;color:#30f858">'+pn(t.to)+'</div>';
@@ -1289,7 +1314,7 @@ function rSetup(){
 
   // Dots
   h+='<div class="card"><div class="ct">Dots <button class="tog '+(BT.dots.on?'on':'off')+'" onclick="togBet(\'dots\')">'+(BT.dots.on?'ON':'OFF')+'</button>'+(BT.dots.on?'<button class="btn sm" onclick="uiState.dotsOpen=!uiState.dotsOpen;render()" style="padding:3px 8px;font-size:10px;margin-left:6px">'+(uiState.dotsOpen?'▲ hide':'▼ settings')+'</button>':'')+'</div>';
-  h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Earn a dot for hitting a fairway (par 4/5) or a birdie-or-better GIR; each dot is paid by all other players.</div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Earn a dot for hitting a fairway (par 4/5) or a birdie-or-better GIR. Only the player(s) with the most dots get paid — everyone else owes the gap between their total and the leader\'s, split among the leaders.</div>';
   if(BT.dots.on&&uiState.dotsOpen)h+='<div class="row"><div><div class="lbl">Fairway $</div><input type="number" min="0" style="width:72px" value="'+BT.dots.fwy+'" onchange="BT.dots.fwy=+this.value"></div><div><div class="lbl">Green $</div><input type="number" min="0" style="width:72px" value="'+BT.dots.grn+'" onchange="BT.dots.grn=+this.value"></div></div><div class="info">FWY = hit fairway off tee (par 4/5 only) · GRN = GIR + made birdie putt or better</div>';
   h+='</div>';
 
@@ -1532,7 +1557,7 @@ function rResults(){
       h+='<td style="text-align:center;padding:6px 4px;color:#f5edd5;font-weight:700">'+(totG!=null?totG:'—')+'</td>';
       h+='<td style="text-align:center;padding:6px 4px;color:#f5edd5;font-weight:700">'+(totN!=null?totN:'—')+'</td>';
       h+='<td style="text-align:center;padding:6px 4px;font-weight:700;color:'+tc+'">'+(diff!=null?(diff>0?'+':'')+diff:'—')+'</td>';
-      if(showDots){var dc=C.reduce(function(n,hole,hi){return n+(DT[hi][i].f&&hole.par>=4?1:0)+(DT[hi][i].g?1:0);},0);h+='<td style="text-align:center;padding:6px 4px;color:#88c898;font-weight:700">'+dc+'</td>';}
+      if(showDots){var dtR=dotTotals(),isLd=dtR.leaders.indexOf(i)>-1;h+='<td style="text-align:center;padding:6px 4px;font-weight:700;color:'+(isLd?'#c9991e':'#88c898')+'">'+dtR.cnt[i]+(isLd?' ★':'')+'</td>';}
       if(showJunk){var jc=C.reduce(function(n,hole,hi){var j=JK[hi][i],g=parseInt(GR[i][hi]);return n+(j.gr&&hole.par===3?1:0)+(j.sa?1:0)+(j.ba?1:0)+(j.po?1:0)+(!isNaN(g)&&g===hole.par-1?1:0)+(!isNaN(g)&&g===hole.par-2?1:0)+(!isNaN(g)&&g===1?1:0);},0);h+='<td style="text-align:center;padding:6px 4px;color:#88c898;font-weight:700">'+jc+'</td>';}
       h+='</tr>';
     });
@@ -1599,7 +1624,16 @@ function rResults(){
     cards.push(mkBetCard('5-3-1',s531Calc(),a,ex53));
   }
   var P3=p3cCalc(); if(P3)cards.push(mkBetCard('Par 3 Clock',P3,a));
-  var D=dotsCalc();  if(D)cards.push(mkBetCard('Dots',D,a));
+  var D=dotsCalc();
+  if(D){
+    var dtC=dotTotals(),exD='';
+    a.forEach(function(i){
+      var isLd=dtC.leaders.indexOf(i)>-1,gap=dtC.max-dtC.val[i];
+      exD+='<div style="font-size:9px;line-height:1.7;color:'+(isLd?'#c9991e':'#a0c8a8')+'">'+pn(i)+' <span style="font-weight:700">'+dtC.cnt[i]+'</span> dots'+(isLd?' <span style="color:#30f858">★ leader</span>':' <span style="color:#4a7050">owes '+fm(-gap)+'</span>')+'</div>';
+    });
+    if(dtC.leaders.length>1)exD+='<div style="font-size:9px;color:#4a7050;margin-top:3px">Pot split '+dtC.leaders.length+' ways</div>';
+    cards.push(mkBetCard('Dots',D,a,exD));
+  }
   var J=junkCalc();  if(J)cards.push(mkBetCard('Junk',J,a));
 
   // Compact grid — fills available width, 3+ cards per row on wide screens
