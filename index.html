@@ -1421,7 +1421,7 @@ function rSetup(){
 function rScores(){
   var a=ais(),ns=NS(),net=NET();
   var h='<div id="ntf" class="ntf'+(nM?' on':'')+'">'+nM+'</div>';
-  h+='<div style="font-size:10px;color:#4a7050;margin-bottom:10px;padding:7px 10px;background:rgba(201,153,30,.05);border:1px solid rgba(201,153,30,.12);border-radius:4px">💡 Par and HCP cells are editable. Tab moves right across holes for each player. Gross score on top, net below.</div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin-bottom:10px;padding:7px 10px;background:rgba(201,153,30,.05);border:1px solid rgba(201,153,30,.12);border-radius:4px">💡 Par and HCP cells are editable. Tab moves left to right along a row and wraps to the start of the next; Shift+Tab goes back. Gross score on top, net below.</div>';
   var NW=96,CW=38,SW=44,RW=52; // name, hole, subtotal, round-total col widths
   // column order: name | holes 1-9 | F | holes 10-18 | B | Tot
   var W=NW+18*CW+2*SW+RW;
@@ -1450,7 +1450,7 @@ function rScores(){
   // Par row
   h+='<tr style="height:30px"><td style="text-align:left;padding:0 8px;color:#c9991e;font-size:10px;font-weight:700;vertical-align:middle">Par</td>';
   C.forEach(function(hx,hi){
-    h+='<td style="text-align:center;vertical-align:middle;padding:2px 1px'+(hi===9?';'+SEP1:'')+'"><input type="number" min="3" max="6" value="'+hx.par+'" onchange="C['+hi+'].par=+this.value||4;render()" style="width:'+(CW-8)+'px;height:24px;text-align:center;padding:0;border-radius:3px;font:700 11px \'Courier New\';background:#001208;border:1px solid #2a5030;color:#c9991e;display:block;margin:0 auto"></td>';
+    h+='<td style="text-align:center;vertical-align:middle;padding:2px 1px'+(hi===9?';'+SEP1:'')+'"><input type="number" min="3" max="6" value="'+hx.par+'" data-nav="sc:0:'+hi+'" onkeydown="gridTab(event,this)" onchange="C['+hi+'].par=+this.value||4;render()" style="width:'+(CW-8)+'px;height:24px;text-align:center;padding:0;border-radius:3px;font:700 11px \'Courier New\';background:#001208;border:1px solid #2a5030;color:#c9991e;display:block;margin:0 auto"></td>';
     if(hi===8)h+='<td style="color:#c9991e;text-align:center;font-size:11px;font-weight:700;vertical-align:middle;'+SEP1+'">'+fPar+'</td>';
   });
   h+='<td style="color:#c9991e;text-align:center;font-size:11px;font-weight:700;vertical-align:middle;'+SEP1+'">'+bPar+'</td>';
@@ -1459,14 +1459,14 @@ function rScores(){
   // HCP row
   h+='<tr style="height:28px"><td style="text-align:left;padding:0 8px;color:#7acc90;font-size:10px;font-weight:700;vertical-align:middle">HCP</td>';
   C.forEach(function(hx,hi){
-    h+='<td style="text-align:center;vertical-align:middle;padding:2px 1px'+(hi===9?';'+SEP1:'')+'"><input type="number" min="1" max="18" value="'+hx.hcp+'" onchange="C['+hi+'].hcp=+this.value||1;render()" style="width:'+(CW-8)+'px;height:22px;text-align:center;padding:0;border-radius:3px;font:600 10px \'Courier New\';background:#001208;border:1px solid #1a3820;color:#7acc90;display:block;margin:0 auto"></td>';
+    h+='<td style="text-align:center;vertical-align:middle;padding:2px 1px'+(hi===9?';'+SEP1:'')+'"><input type="number" min="1" max="18" value="'+hx.hcp+'" data-nav="sc:1:'+hi+'" onkeydown="gridTab(event,this)" onchange="C['+hi+'].hcp=+this.value||1;render()" style="width:'+(CW-8)+'px;height:22px;text-align:center;padding:0;border-radius:3px;font:600 10px \'Courier New\';background:#001208;border:1px solid #1a3820;color:#7acc90;display:block;margin:0 auto"></td>';
     if(hi===8)h+='<td style="'+SEP1+'"></td>';
   });
   h+='<td style="'+SEP1+'"></td><td style="'+SEP2+'"></td></tr>';
   h+='</thead><tbody>';
 
-  // Player rows
-  a.forEach(function(pi){
+  // Player rows — grid rows 2+ (row 0 = Par, row 1 = HCP)
+  a.forEach(function(pi,navRow){
     var fNet=net[pi].slice(0,9),bNet=net[pi].slice(9,18);
     var fGr=GR[pi].slice(0,9).map(function(v){return parseInt(v);}),bGr=GR[pi].slice(9,18).map(function(v){return parseInt(v);});
     var fNT=fNet.every(function(v){return v!=null;})?fNet.reduce(function(s,b){return s+b;},0):null;
@@ -1480,7 +1480,7 @@ function rScores(){
     C.forEach(function(hx,hi){
       var g=GR[pi][hi],nv=net[pi][hi],dot=ns[pi][hi]>0,nc=nv!=null?sC(nv-hx.par):'rgba(245,237,213,.18)';
       h+='<td style="padding:2px 1px;text-align:center;vertical-align:middle;position:relative'+(hi===9?';'+SEP1:'')+'">';
-      h+='<input type="number" min="1" max="15" class="scinp" data-pi="'+pi+'" data-hi="'+hi+'" onkeydown="scTab(event,this)" oninput="setSI('+pi+','+hi+',this.value)" value="'+g+'" style="width:'+(CW-8)+'px;height:26px;text-align:center;padding:0;border-radius:4px;font:700 13px \'Courier New\';display:block;margin:0 auto;background:'+(nv!=null?nc+'22':'rgba(255,255,255,.04)')+';border:1px solid '+(nv!=null?nc+'aa':'rgba(255,255,255,.12)')+';color:'+(nv!=null?nc:'#3a6040')+';">';
+      h+='<input type="number" min="1" max="15" class="scinp" data-pi="'+pi+'" data-hi="'+hi+'" data-nav="sc:'+(navRow+2)+':'+hi+'" onkeydown="gridTab(event,this)" oninput="setSI('+pi+','+hi+',this.value)" value="'+g+'" style="width:'+(CW-8)+'px;height:26px;text-align:center;padding:0;border-radius:4px;font:700 13px \'Courier New\';display:block;margin:0 auto;background:'+(nv!=null?nc+'22':'rgba(255,255,255,.04)')+';border:1px solid '+(nv!=null?nc+'aa':'rgba(255,255,255,.12)')+';color:'+(nv!=null?nc:'#3a6040')+';">';
       h+='<span style="display:block;font-size:9px;line-height:1.5;text-align:center;color:'+(nv!=null?nc:'#1a3820')+'">'+(nv!=null?nv:'·')+'</span>';
       h+=(dot?'<span style="position:absolute;top:1px;right:2px;font-size:5px;color:#c9991e;line-height:1">●</span>':'');
       h+='</td>';
@@ -1537,9 +1537,9 @@ function rExtras(){
     h+='</tr></thead><tbody>';
     C.forEach(function(hole,hi){
       h+='<tr style="'+(hi%2?'':'background:rgba(255,255,255,.02)')+'"><td style="text-align:left;padding:4px 8px;font-weight:700">'+hole.n+'</td><td style="color:#4a7050">'+hole.par+'</td>';
-      a.forEach(function(pi){
-        h+='<td><input type="checkbox"'+(DT[hi][pi].f?' checked':'')+(hole.par<4?' disabled style="opacity:.2"':'')+' onchange="setDot('+hi+','+pi+',\'f\',this.checked)"></td>';
-        h+='<td><input type="checkbox"'+(DT[hi][pi].g?' checked':'')+' onchange="setDot('+hi+','+pi+',\'g\',this.checked)"></td>';
+      a.forEach(function(pi,ai){
+        h+='<td><input type="checkbox" data-nav="dots:'+hi+':'+(ai*2)+'" onkeydown="gridTab(event,this)"'+(DT[hi][pi].f?' checked':'')+(hole.par<4?' disabled style="opacity:.2"':'')+' onchange="setDot('+hi+','+pi+',\'f\',this.checked)"></td>';
+        h+='<td><input type="checkbox" data-nav="dots:'+hi+':'+(ai*2+1)+'" onkeydown="gridTab(event,this)"'+(DT[hi][pi].g?' checked':'')+' onchange="setDot('+hi+','+pi+',\'g\',this.checked)"></td>';
       });
       h+='</tr>';
     });
@@ -1555,8 +1555,8 @@ function rExtras(){
     h+='</tr></thead><tbody>';
     C.forEach(function(hole,hi){
       h+='<tr style="'+(hi%2?'':'background:rgba(255,255,255,.02)')+'"><td style="text-align:left;padding:4px 8px;font-weight:700">'+hole.n+'</td><td style="color:#4a7050">'+hole.par+'</td>';
-      a.forEach(function(pi){
-        jT.forEach(function(t){var dis=t.p3&&hole.par!==3;h+='<td><input type="checkbox"'+(JK[hi][pi][t.k]?' checked':'')+(dis?' disabled style="opacity:.15"':'')+' onchange="setJK('+hi+','+pi+',\''+t.k+'\',this.checked)"></td>';});
+      a.forEach(function(pi,ai){
+        jT.forEach(function(t,ti){var dis=t.p3&&hole.par!==3;h+='<td><input type="checkbox" data-nav="junk:'+hi+':'+(ai*7+ti)+'" onkeydown="gridTab(event,this)"'+(JK[hi][pi][t.k]?' checked':'')+(dis?' disabled style="opacity:.15"':'')+' onchange="setJK('+hi+','+pi+',\''+t.k+'\',this.checked)"></td>';});
         var g=parseInt(GR[pi][hi]),isBrd=!isNaN(g)&&g===hole.par-1,isEgl=!isNaN(g)&&g===hole.par-2,isHio=!isNaN(g)&&g===1;
         h+='<td><input type="checkbox"'+(isBrd?' checked':'')+' disabled style="opacity:'+(isNaN(g)?'.15':'.9')+'"></td>';
         h+='<td><input type="checkbox"'+(isEgl?' checked':'')+' disabled style="opacity:'+(isNaN(g)?'.15':'.9')+'"></td>';
@@ -1572,10 +1572,10 @@ function rExtras(){
     C.forEach(function(hole,hi){
       if(hole.par!==3)return;var pc=P3C[hi],g=pc.cp!=null?parseInt(GR[pc.cp][hi]):NaN,diff=!isNaN(g)?g-hole.par:null;
       var rs=diff!=null?(diff<=-1?'<span style="color:#ff3030">birdie+ ✓</span>':diff===0?'<span style="color:#60e030">par ✓</span>':'<span style="color:#30aaff">over par</span>'):'';
-      h+='<div class="mu"><div style="font-weight:700;color:#c9991e;margin-bottom:8px">Hole '+hole.n+'</div><div class="row" style="margin-bottom:0"><div><div class="lbl">On the Clock</div><select style="width:140px" onchange="setP3Cp('+hi+',+this.value)"><option value="-1"'+(pc.cp==null?' selected':'')+'">— nobody —</option>';
+      h+='<div class="mu"><div style="font-weight:700;color:#c9991e;margin-bottom:8px">Hole '+hole.n+'</div><div class="row" style="margin-bottom:0"><div><div class="lbl">On the Clock</div><select style="width:140px" data-nav="p3c:'+hi+':0" onkeydown="gridTab(event,this)" onchange="setP3Cp('+hi+',+this.value)"><option value="-1"'+(pc.cp==null?' selected':'')+'">— nobody —</option>';
       a.forEach(function(i){h+='<option value="'+i+'"'+(pc.cp===i?' selected':'')+'>'+pn(i)+'</option>';});
       h+='</select></div>';
-      if(pc.cp!=null){h+='<div style="padding-bottom:7px"><label style="font-size:11px;color:#7acc90;cursor:pointer"><input type="checkbox"'+(pc.tp?' checked':'')+' onchange="setP3Ctp('+hi+',this.checked)" style="margin-right:5px">3-putt bogey?</label></div>';if(!isNaN(g))h+='<div style="font-size:11px;color:#c9991e;padding-bottom:6px">Gross: '+g+' ('+rs+')</div>';}
+      if(pc.cp!=null){h+='<div style="padding-bottom:7px"><label style="font-size:11px;color:#7acc90;cursor:pointer"><input type="checkbox" data-nav="p3c:'+hi+':1" onkeydown="gridTab(event,this)"'+(pc.tp?' checked':'')+' onchange="setP3Ctp('+hi+',this.checked)" style="margin-right:5px">3-putt bogey?</label></div>';if(!isNaN(g))h+='<div style="font-size:11px;color:#c9991e;padding-bottom:6px">Gross: '+g+' ('+rs+')</div>';}
       h+='</div></div>';
     });
     h+='</div>';
@@ -1597,8 +1597,8 @@ function rWolf(){
     var wp=a[hi%4],dec=WD[hi].dec;
     h+='<tr style="border-bottom:1px solid rgba(255,255,255,.025)"><td style="color:#f5edd5;font-weight:700;padding:4px 6px">'+(hi+1)+'</td>';
     h+='<td style="color:#c9991e;padding:4px 6px;font-size:10px">'+pn(wp).slice(0,8)+'</td>';
-    h+='<td style="padding:3px 4px"><button class="wb '+(dec===-1?'on':'off')+'" onclick="setWolf('+hi+',-1)">LONE</button></td>';
-    a.forEach(function(i){if(i!==wp)h+='<td style="padding:3px 4px"><button class="wb '+(dec===i?'on':'off')+'" onclick="setWolf('+hi+','+i+')">'+pn(i).slice(0,5)+'</button></td>';else h+='<td style="color:#1a3020;text-align:center">—</td>';});
+    h+='<td style="padding:3px 4px"><button class="wb '+(dec===-1?'on':'off')+'" data-nav="wolf:'+hi+':0" onkeydown="gridTab(event,this)" onclick="setWolf('+hi+',-1)">LONE</button></td>';
+    a.forEach(function(i,ai){if(i!==wp)h+='<td style="padding:3px 4px"><button class="wb '+(dec===i?'on':'off')+'" data-nav="wolf:'+hi+':'+(ai+1)+'" onkeydown="gridTab(event,this)" onclick="setWolf('+hi+','+i+')">'+pn(i).slice(0,5)+'</button></td>';else h+='<td style="color:#1a3020;text-align:center">—</td>';});
     h+='</tr>';
   });
   h+='</tbody></table></div></div>';
@@ -1947,20 +1947,40 @@ function selPly(pi,val){if(val==='__new__'){showNewP[pi]=true;render();return;}i
 function addPly(pi){var nm=document.getElementById('nnm'+pi),nh=document.getElementById('nnh'+pi);if(!nm)return;var name=nm.value.trim(),hcp=parseInt(nh?nh.value:10)||10;if(!name)return;P[pi].name=name;P[pi].hcp=hcp;showNewP[pi]=false;if(!sG.find(function(g){return g.name===name;})){sG.push({name:name,hcp:hcp});svG();}render();}
 
 // Tab moves horizontally across the same player's holes — no DOM rebuild needed
-function scTab(e,inp){
+// ── Grid keyboard navigation ──────────────────────────────────────────────────
+// Every editable grid tags its cells data-nav="grid:row:col". Tab walks left to
+// right along a row and wraps to the start of the next row; Shift+Tab reverses.
+// Disabled cells are skipped. Focus lands on a timeout so it survives the
+// render() that a cell's onchange fires — without that the rebuild drops focus
+// to <body> and the user has to click back in.
+function navCells(grid){
+  var out=[];
+  Array.prototype.forEach.call(document.querySelectorAll('[data-nav^="'+grid+':"]'),function(el){
+    if(el.disabled)return;
+    var p=(el.getAttribute('data-nav')||'').split(':');
+    if(p.length<3)return;
+    out.push({el:el,row:+p[1],col:+p[2]});
+  });
+  out.sort(function(x,y){return x.row!==y.row?x.row-y.row:x.col-y.col;});
+  return out;
+}
+function focusNav(nav){
+  var el=document.querySelector('[data-nav="'+nav+'"]');
+  if(!el)return;
+  try{el.focus();}catch(e){return;}
+  if(el.tagName==='INPUT'&&(el.type==='number'||el.type==='text')){try{el.select();}catch(e){}}
+}
+function gridTab(e,el){
   if(e.key!=='Tab')return;
+  var nav=el.getAttribute('data-nav');if(!nav)return;
+  var cells=navCells(nav.split(':')[0]);
+  var idx=-1;
+  for(var i=0;i<cells.length;i++){if(cells[i].el===el){idx=i;break;}}
+  if(idx<0||!cells.length)return;
   e.preventDefault();
-  var a=ais(),backward=e.shiftKey;
-  var pi=+inp.getAttribute('data-pi'),hi=+inp.getAttribute('data-hi');
-  var nx;
-  if(backward){
-    if(hi>0){nx=document.querySelector('.scinp[data-pi="'+pi+'"][data-hi="'+(hi-1)+'"]');}
-    else{var ai=a.indexOf(pi);var pp=a[(ai-1+a.length)%a.length];nx=document.querySelector('.scinp[data-pi="'+pp+'"][data-hi="17"]');}
-  }else{
-    if(hi<17){nx=document.querySelector('.scinp[data-pi="'+pi+'"][data-hi="'+(hi+1)+'"]');}
-    else{var ai=a.indexOf(pi);var np=a[(ai+1)%a.length];nx=document.querySelector('.scinp[data-pi="'+np+'"][data-hi="0"]');}
-  }
-  if(nx){nx.focus();nx.select();}
+  var target=cells[(idx+(e.shiftKey?-1:1)+cells.length)%cells.length].el.getAttribute('data-nav');
+  el.blur();                                   // let onchange (and any render) run first
+  setTimeout(function(){focusNav(target);},0); // then land on the neighbour in the fresh DOM
 }
 
 // Targeted cell update — updates one score cell in-place without rebuilding the table
@@ -2004,6 +2024,10 @@ function updateRowTotals(pi,nine){
 function render(){
   invalidateCalcCache();
   var root=document.getElementById('root');
+  // A grid cell's onchange calls render(), which rebuilds the DOM and would drop
+  // focus to <body> — leaving Tab with no anchor. Remember the cell and restore it.
+  var ae=document.activeElement;
+  var keepNav=(ae&&ae.getAttribute)?ae.getAttribute('data-nav'):null;
   if(!loggedIn){root.innerHTML=rLogin();return;}
   var tabs=getTabs();
   var th=tabs.map(function(t){return'<button class="tab'+(TAB===t.id?' act':'')+'" onclick="setTab(\''+t.id+'\')">'+t.l+'</button>';}).join('');
@@ -2018,6 +2042,7 @@ function render(){
   var shareBar='<div style="display:flex;gap:4px;align-items:center;flex-shrink:0"><span style="font-size:9px;color:#3a6040;letter-spacing:.5px;white-space:nowrap">Share</span><button class="btn sm" onclick="doShare(\'native\')" style="padding:3px 7px;font-size:11px" title="Share via native share sheet">📱</button><button class="btn sm" onclick="doShare(\'x\')" style="padding:3px 7px;font-size:11px;color:#d0d0d0;border-color:#333" title="Post to X">𝕏</button><button class="btn sm" onclick="doShare(\'ig\')" style="padding:3px 7px;font-size:11px;color:#e060b8;border-color:#602848" title="Copy for Instagram">📷</button><button class="btn sm" onclick="doShare(\'tt\')" style="padding:3px 7px;font-size:11px;color:#60e0e0;border-color:#204858" title="Copy for TikTok">♪</button><button class="btn sm" onclick="doShare(\'copy\')" style="padding:3px 7px;font-size:11px" title="Copy to clipboard">📋</button></div>';
   root.innerHTML='<div class="hdr"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px"><div class="ttl" style="margin-bottom:0">⛳ GOLF BET TRACKER'+(profile&&profile.name!=='Demo'?'<span style="font-size:10px;color:#3a6040;margin-left:14px;letter-spacing:1px">'+profile.name+'</span>':'')+'</div>'+shareBar+'</div><div class="tabs">'+th+'</div></div><div class="bd">'+body+'</div>';
   var ntf=document.getElementById('ntf');if(ntf&&nM){ntf.textContent=nM;ntf.className='ntf on';}
+  if(keepNav){var back=document.querySelector('[data-nav="'+keepNav+'"]');if(back){try{back.focus();}catch(e){}}}
 }
 
 ldAll().then(function(){
