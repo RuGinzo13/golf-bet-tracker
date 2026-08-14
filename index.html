@@ -103,7 +103,7 @@ var DEF=[{n:1,par:4,hcp:1},{n:2,par:5,hcp:13},{n:3,par:3,hcp:7},{n:4,par:4,hcp:3
 var C=DEF.map(function(h){return Object.assign({},h);});
 var GR=Array(4).fill(0).map(function(){return Array(18).fill('');});
 var BT={
-  nassau:{on:false,mus:[{p1:0,p2:1,front:5,back:5,tot:10}],tmus:[]},
+  nassau:{on:false,h2h:true,teams:false,mus:[{p1:0,p2:1,front:5,back:5,tot:10}],tmus:[]},
   match:{on:false,mus:[{p1:0,p2:1,stake:10}]},
   wolf:{on:false,stake:2},s666:{on:false,stake:5},s531:{on:false,stake:1},
   p3c:{on:false,birdie:10,par:5,bogey:5},dots:{on:false,val:1,fwy:1,grn:1},
@@ -322,10 +322,21 @@ function nassauLiveStateTeam(t1,t2,from,to){
   var total=to-from+1,remaining=total-played,diff=w1-w2;
   return{w1:w1,w2:w2,played:played,remaining:remaining,diff:diff,closed:played>0&&Math.abs(diff)>remaining};
 }
+// Head-to-head and 2v2 are independent formats — either can run without the other.
+// Saved rounds predate these flags: h2h defaults ON (that was the old behaviour),
+// teams defaults to whether the round actually had team matchups.
+function nassauH2HOn(){return BT.nassau.h2h!==false;}
+function nassauTeamsOn(){
+  if(BT.nassau.teams!=null)return !!BT.nassau.teams;
+  return !!(BT.nassau.tmus&&BT.nassau.tmus.length);
+}
+function nassauMus(){return nassauH2HOn()?(BT.nassau.mus||[]):[];}
+function nassauTmus(){return nassauTeamsOn()?(BT.nassau.tmus||[]):[];}
 function nassauCalc(){
   if(!BT.nassau.on)return null;
+  if(!nassauH2HOn()&&!nassauTeamsOn())return null; // both formats off — no bet at all
   var r={};ais().forEach(function(i){r[i]=0;});
-  BT.nassau.mus.forEach(function(mu){
+  nassauMus().forEach(function(mu){
     var p1=mu.p1,p2=mu.p2;if(!P[p1]||!P[p1].on||!P[p2]||!P[p2].on)return;
     [[0,8,+mu.front],[9,17,+mu.back],[0,17,+mu.tot]].forEach(function(seg){
       var res=nassauHoles(p1,p2,seg[0],seg[1]);
@@ -334,7 +345,7 @@ function nassauCalc(){
       else if(res.w2>res.w1){r[p2]+=seg[2];r[p1]-=seg[2];}
     });
   });
-  (BT.nassau.tmus||[]).forEach(function(mu){
+  nassauTmus().forEach(function(mu){
     var t1=mu.t1,t2=mu.t2;
     if(!t1||!t2||t1.length!==2||t2.length!==2)return;
     if(t1.concat(t2).some(function(p){return!P[p]||!P[p].on;}))return;
@@ -363,7 +374,7 @@ function fmtLiveState(st,p1n,p2n){
 function buildNassauLiveHtml(){
   if(!BT.nassau.on)return'';
   var h='';
-  BT.nassau.mus.forEach(function(mu){
+  nassauMus().forEach(function(mu){
     if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
     var p1n=pn(mu.p1),p2n=pn(mu.p2);
     var fS=nassauLiveState(mu.p1,mu.p2,0,8),bS=nassauLiveState(mu.p1,mu.p2,9,17),oS=nassauLiveState(mu.p1,mu.p2,0,17);
@@ -373,7 +384,7 @@ function buildNassauLiveHtml(){
     h+=' &nbsp;<span style="color:#4a7050">O('+oS.played+'):</span> '+fmtLiveState(oS,p1n,p2n);
     h+='</div>';
   });
-  (BT.nassau.tmus||[]).forEach(function(mu){
+  nassauTmus().forEach(function(mu){
     if(!mu.t1||!mu.t2||mu.t1.concat(mu.t2).some(function(p){return!P[p]||!P[p].on;}))return;
     var t1n=pn(mu.t1[0])+'/'+pn(mu.t1[1]),t2n=pn(mu.t2[0])+'/'+pn(mu.t2[1]);
     var fS=nassauLiveStateTeam(mu.t1,mu.t2,0,8),bS=nassauLiveStateTeam(mu.t1,mu.t2,9,17),oS=nassauLiveStateTeam(mu.t1,mu.t2,0,17);
@@ -651,8 +662,8 @@ function buildShareText(){
   });
   if(scoreLines.length){lines.push('📊 Scores');scoreLines.forEach(function(l){lines.push(l);});lines.push('');}
   var betLines=[];
-  if(BT.nassau.on){
-    BT.nassau.mus.forEach(function(mu){
+  if(BT.nassau.on&&(nassauH2HOn()||nassauTeamsOn())){
+    nassauMus().forEach(function(mu){
       if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
       var parts=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
         var res=nassauHoles(mu.p1,mu.p2,sg[0],sg[1]);if(!res.complete)return'';
@@ -661,7 +672,7 @@ function buildShareText(){
       }).filter(Boolean).join(' · ');
       if(parts)betLines.push('Nassau ('+pn(mu.p1)+' v '+pn(mu.p2)+'): '+parts);
     });
-    (BT.nassau.tmus||[]).forEach(function(mu){
+    nassauTmus().forEach(function(mu){
       if(!mu.t1||!mu.t2||mu.t1.concat(mu.t2).some(function(p){return!P[p]||!P[p].on;}))return;
       var t1n=pn(mu.t1[0])+'/'+pn(mu.t1[1]),t2n=pn(mu.t2[0])+'/'+pn(mu.t2[1]);
       var parts=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
@@ -906,7 +917,7 @@ function rFlow(){
   var games=[
     {name:'Nassau',result:nassauCalc(),detail:function(){
       var d='';
-      BT.nassau.mus.forEach(function(mu){
+      nassauMus().forEach(function(mu){
         if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
         var parts=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
           var res=nassauHoles(mu.p1,mu.p2,sg[0],sg[1]);if(!res.complete)return sg[2]+':?';
@@ -915,7 +926,7 @@ function rFlow(){
         }).join(' &nbsp;·&nbsp; ');
         d+='<div style="font-size:9px;color:#7acc90;margin-bottom:6px;padding:5px 8px;background:rgba(0,40,16,.4);border-radius:4px">'+pn(mu.p1)+' v '+pn(mu.p2)+' &nbsp;|&nbsp; '+parts+'</div>';
       });
-      (BT.nassau.tmus||[]).forEach(function(mu){
+      nassauTmus().forEach(function(mu){
         if(!mu.t1||!mu.t2||mu.t1.concat(mu.t2).some(function(p){return!P[p]||!P[p].on;}))return;
         var t1n=pn(mu.t1[0])+'/'+pn(mu.t1[1]),t2n=pn(mu.t2[0])+'/'+pn(mu.t2[1]);
         var parts=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
@@ -1311,6 +1322,11 @@ function rSetup(){
   h+='<div class="card"><div class="ct">Nassau <button class="tog '+(BT.nassau.on?'on':'off')+'" onclick="togBet(\'nassau\')">'+(BT.nassau.on?'ON':'OFF')+'</button></div>';
   h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Match play with separate bets on the front 9, back 9, and full round. Play it head-to-head, or as 2v2 teams when you have 4 players — both formats can run at once.</div>';
   if(BT.nassau.on){
+    // Head-to-head section — independently switchable
+    h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
+    h+='<span style="font-size:10px;font-weight:700;color:'+(nassauH2HOn()?'#c9991e':'#4a7050')+';letter-spacing:.5px">Head-to-Head (1v1)</span>';
+    h+='<button class="tog '+(nassauH2HOn()?'on':'off')+'" style="padding:2px 8px;font-size:9px" onclick="togNassauH2H()">'+(nassauH2HOn()?'ON':'OFF')+'</button></div>';
+    if(nassauH2HOn())
     BT.nassau.mus.forEach(function(mu,mi){
       var op=a.length?a:[0,1];
       h+='<div class="mu"><div class="row" style="margin-bottom:8px">';
@@ -1323,10 +1339,13 @@ function rSetup(){
       [['front','Front $'],['back','Back $'],['tot','Overall $']].forEach(function(pair){h+='<div><div class="lbl">'+pair[1]+'</div><input type="number" min="0" style="width:68px" value="'+mu[pair[0]]+'" onchange="BT.nassau.mus['+mi+'].'+pair[0]+'=+this.value"></div>';});
       h+='</div></div>';
     });
-    h+='<button class="btn sm" style="margin-top:4px" onclick="addMu(\'nassau\')">+ Add Matchup</button>';
+    if(nassauH2HOn())h+='<button class="btn sm" style="margin-top:4px" onclick="addMu(\'nassau\')">+ Add Matchup</button>';
     if(numP===4){
       h+='<div style="margin-top:12px;padding-top:10px;border-top:1px solid #1a4028">';
-      h+='<div style="font-size:10px;font-weight:700;color:#c9991e;letter-spacing:.5px;margin-bottom:6px">2v2 Best Ball</div>';
+      h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+      h+='<span style="font-size:10px;font-weight:700;color:'+(nassauTeamsOn()?'#c9991e':'#4a7050')+';letter-spacing:.5px">2v2 Best Ball</span>';
+      h+='<button class="tog '+(nassauTeamsOn()?'on':'off')+'" style="padding:2px 8px;font-size:9px" onclick="togNassauTeams()">'+(nassauTeamsOn()?'ON':'OFF')+'</button></div>';
+      if(nassauTeamsOn()){
       h+='<div style="font-size:10px;color:#4a7050;margin-bottom:8px">Each team\'s score per hole = their lowest net. Match play across front, back, overall.</div>';
       (BT.nassau.tmus||[]).forEach(function(mu,mi){
         var op=a.length?a:[0,1,2,3];
@@ -1346,8 +1365,10 @@ function rSetup(){
         h+='</div></div>';
       });
       h+='<button class="btn sm" style="margin-top:4px" onclick="addTmu()">+ Add 2v2 Matchup</button>';
+      }
       h+='</div>';
     }
+    if(!nassauH2HOn()&&!nassauTeamsOn())h+='<div class="info" style="margin-top:8px">Both Nassau formats are off — no Nassau money will change hands.</div>';
   }
   h+='</div>';
 
@@ -1528,7 +1549,7 @@ function rScores(){
   h+='</tbody></table></div>';
 
   // Live match state — label sits outside the update target so it survives innerHTML refresh
-  if(BT.nassau.on){
+  if(BT.nassau.on&&(nassauH2HOn()||nassauTeamsOn())){
     h+='<div style="padding:8px 4px 2px;border-top:1px solid #1a4028;margin-top:6px">';
     h+='<div style="font-size:9px;font-weight:700;color:#c9991e;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">Nassau</div>';
     h+='<div id="nassau-live">'+buildNassauLiveHtml()+'</div></div>';
@@ -1683,7 +1704,7 @@ function rResults(){
   var N=nassauCalc();
   if(N){
     var nex='';
-    BT.nassau.mus.forEach(function(mu){
+    nassauMus().forEach(function(mu){
       if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
       var segs=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
         var res=nassauHoles(mu.p1,mu.p2,sg[0],sg[1]);
@@ -1693,7 +1714,7 @@ function rResults(){
       }).join('  ');
       nex+='<div style="font-size:9px;color:#7acc90;line-height:1.6">'+pn(mu.p1)+' v '+pn(mu.p2)+'<br><span style="color:#4a7050">'+segs+'</span></div>';
     });
-    (BT.nassau.tmus||[]).forEach(function(mu){
+    nassauTmus().forEach(function(mu){
       if(!mu.t1||!mu.t2||mu.t1.concat(mu.t2).some(function(p){return!P[p]||!P[p].on;}))return;
       var t1n=pn(mu.t1[0])+'/'+pn(mu.t1[1]),t2n=pn(mu.t2[0])+'/'+pn(mu.t2[1]);
       var segs=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
@@ -1964,6 +1985,17 @@ function setNumP(n){numP=n;P.forEach(function(p,i){p.on=i<n;});if(n!==4){BT.wolf
 function togBet(k){BT[k].on=!BT[k].on;if(!BT[k].on){if(k==='dots')uiState.dotsOpen=false;if(k==='junk')uiState.junkOpen=false;}render();}
 function addMu(k){BT[k].mus.push(k==='nassau'?{p1:0,p2:1,front:5,back:5,tot:10}:{p1:0,p2:1,stake:10});render();}
 function delMu(k,idx){BT[k].mus.splice(idx,1);render();}
+function togNassauH2H(){
+  var on=!nassauH2HOn();BT.nassau.h2h=on;
+  if(on&&!(BT.nassau.mus||[]).length)BT.nassau.mus=[{p1:0,p2:1,front:5,back:5,tot:10}];
+  invalidateCalcCache();render();
+}
+function togNassauTeams(){
+  var on=!nassauTeamsOn();BT.nassau.teams=on;
+  var a=ais();
+  if(on&&!(BT.nassau.tmus||[]).length)BT.nassau.tmus=[{t1:[a[0]||0,a[1]||1],t2:[a[2]||2,a[3]||3],front:5,back:5,tot:10}];
+  invalidateCalcCache();render();
+}
 function addTmu(){var a=ais();if(!BT.nassau.tmus)BT.nassau.tmus=[];BT.nassau.tmus.push({t1:[a[0]||0,a[1]||1],t2:[a[2]||2,a[3]||3],front:5,back:5,tot:10});render();}
 function delTmu(idx){BT.nassau.tmus.splice(idx,1);render();}
 function setTmuPlayer(mi,team,slot,pi){var mu=BT.nassau.tmus[mi];if(team===1)mu.t1[slot]=pi;else mu.t2[slot]=pi;render();}
