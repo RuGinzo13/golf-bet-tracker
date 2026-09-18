@@ -92,9 +92,7 @@ var showNewP=[false,false,false,false];
 var editingRoundId=null;
 var csTimer=null;
 // ── Golf Course API ───────────────────────────────────────────────────────────
-var API_KEY='T5G624EKF3RWOEP3M3UICPKAVI'; // golfcourseapi.com key
 var PROXY_URL='https://golf-proxy.rmg-1313.workers.dev'; // Cloudflare Worker proxy
-var API_BASE='https://api.golfcourseapi.com/v1';
 var courseTeeSets=[],courseTeeIdx=0,lastCourseId='',courseCache={};
 var sG=[],rounds=[];
 var P=[{name:'',hcp:10,on:true},{name:'',hcp:14,on:true},{name:'',hcp:6,on:false},{name:'',hcp:20,on:false}];
@@ -1022,20 +1020,10 @@ function rFlow(){
   return h;
 }
 
-// ── Course Search — direct API call (or optional Cloudflare Worker proxy) ─────
-async function apiFetch(proxyPath,directSuffix){
-  if(PROXY_URL){
-    var r=await fetch(PROXY_URL+proxyPath);
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    return r.json();
-  }
-  var url=API_BASE+(directSuffix||proxyPath);
-  // Try Bearer first (OAuth2 style)
-  var r=await fetch(url,{headers:{'Authorization':'Bearer '+API_KEY,'Accept':'application/json'}});
-  // If rejected, retry with x-api-key header (some API versions require this)
-  if(r.status===401||r.status===403){
-    r=await fetch(url,{headers:{'x-api-key':API_KEY,'Accept':'application/json'}});
-  }
+// ── Course Search — via Cloudflare Worker proxy ────────────────────────────────
+async function apiFetch(proxyPath){
+  if(!PROXY_URL)throw new Error('Course search not configured');
+  var r=await fetch(PROXY_URL+proxyPath);
   if(!r.ok)throw new Error('HTTP '+r.status);
   return r.json();
 }
@@ -1081,7 +1069,7 @@ function csSearch(q){
     try{
       drop.innerHTML='<div style="font-size:10px;color:#4a7050;padding:8px 11px">Searching...</div>';
       drop.style.display='block';
-      var data=await apiFetch('/search?q='+encodeURIComponent(q),'/search?search_query='+encodeURIComponent(q));
+      var data=await apiFetch('/search?q='+encodeURIComponent(q));
       var courses=Array.isArray(data)?data:(data.courses||data.data||[]);
       if(!courses.length){drop.innerHTML='<div style="font-size:10px;color:#4a7050;padding:8px 11px">No courses found.</div>';return;}
       // Cache full course objects so pickCourse can use tee data without a second API call
@@ -1121,7 +1109,7 @@ async function pickCourse(id,rawName){
   var statusEl=document.getElementById('cs-status');
   if(statusEl){statusEl.textContent='Loading scorecard...';statusEl.style.color='#4a7050';}
   try{
-    var data=courseCache[id]||await apiFetch('/course/'+encodeURIComponent(id),'/courses/'+encodeURIComponent(id));
+    var data=courseCache[id]||await apiFetch('/course/'+encodeURIComponent(id));
     var sets=extractTees(data);
     if(!sets.length)throw new Error('No scorecard data in response');
     courseTeeSets=sets;
@@ -1177,7 +1165,6 @@ function ensureProfileInRoster(){
   if(!P[0].name){P[0].name=profile.name;P[0].hcp=profile.hcp||10;}
 }
 function doDemo(){profile={name:'Demo',hcp:10};loggedIn=true;loginErr='';render();}
-function doReset(){if(confirm('Sign out? Your rounds stay saved on this device.'))storage.del('prof').then(function(){storage.del('pin');profile=null;syncPin='';loggedIn=false;loginErr='';render();});}
 
 // ── Cloud Sync ────────────────────────────────────────────────────────────────
 function buildSyncData(){

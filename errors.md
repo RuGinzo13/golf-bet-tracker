@@ -208,17 +208,58 @@ someone reads the full file.
 
 ---
 
+## Session Summary, September 18, 2026 (cont'd) — Phase 1 & 2 (Repo Hygiene, Dead Code)
+
+**Phase 1 — Repo Hygiene.** Removed a stale, zero-byte `.git/index.lock` (confirmed no
+git process held it via `ps`/`lsof` — only Spotlight's `mdworker` had it open for
+reading). Confirmed via `git log --oneline -- <file>` that all 8 files listed in the
+"Known Issues" #1 entry above had genuinely never been committed. Added `.gitignore`
+for `.DS_Store` and `.claude/`, unstaged `.DS_Store` itself (now ignored, not tracked).
+Committed all 8 files plus `CONTEXT_UPDATE.md` and the new `phases/` directory in one
+commit.
+
+**Phase 2 — Dead Code & Exposed Secret.**
+- Removed the plaintext `API_KEY` fallback and the entire direct-fetch branch in
+  `apiFetch()` (Bearer-then-`x-api-key` retry against `api.golfcourseapi.com`
+  directly). `API_BASE` var removed too — it was only referenced from the deleted
+  branch. `apiFetch()` now takes a single `proxyPath` argument (the `directSuffix`
+  second argument was always dead once the direct branch is gone) and throws a clear
+  "Course search not configured" error if `PROXY_URL` is unset, instead of silently
+  falling back to a client-side key. Both call sites (`csSearch`, `pickCourse`)
+  updated to drop the now-unused second argument.
+- Full-file dead-code scan (every top-level `function` and `var` checked for
+  reference count beyond its own declaration): found exactly one genuinely dead
+  function, `doReset()` — a sign-out handler that cleared `profile`/`syncPin` and
+  logged the user out, but was never wired to any UI element (no `onclick="doReset()"`
+  anywhere in either `golf_bet_tracker.html` or `index.html`). Confirmed with Ross
+  before deleting (per this phase's instructions) — deleted. **Note:** this means the
+  app currently has no way for a user to sign out / switch profiles from the UI at
+  all; if that's wanted, it needs a button wired to a reset function, not just
+  restoring the deleted one blind.
+- No leftover `DOTS_RULE_FLAG`/`JUNK_RULE_FLAG`-style naming found — the single
+  `RULE_FLAG` pattern described in summary.md's Architecture section is already
+  consistently used everywhere; nothing to clean up there.
+- `golf_bet_tracker.html` copied to `index.html` (deploy.sh convention). Not pushed —
+  that's a live-site deploy action, left for Ross to trigger via `./deploy.sh` or an
+  explicit push request.
+
+---
+
 ## Known Issues — Unresolved (as of Sep 18, 2026)
 
 Not fixed yet, flagged for prioritization:
 
-1. **Docs and source code not committed to git.** `golf_bet_tracker.html` (stated
-   source of truth) plus every `.md` doc are uncommitted — `git status` shows them
-   permanently staged. Only the built `index.html` and four other static files exist in
-   any commit. Single point of failure on this machine.
-2. **Dead API key in public source.** Plaintext golfcourseapi.com key at
-   `golf_bet_tracker.html` line ~95, unused in the current code path but exposed in a
-   public repo and its history.
+1. ~~**Docs and source code not committed to git.**~~ **Resolved Sep 18, 2026 (Phase
+   1).** All 8 files (`golf_bet_tracker.html` + every `.md` doc + `deploy.sh`) committed
+   in one commit; stale `.git/index.lock` cleared first (confirmed no live git process
+   held it), `.gitignore` added for `.DS_Store`/`.claude/`.
+2. ~~**Dead API key in public source.**~~ **Resolved Sep 18, 2026 (Phase 2).** Removed
+   the `API_KEY`/`API_BASE` vars and the direct-fetch fallback branch in `apiFetch()` —
+   the app now only ever talks to the Worker proxy, and fails with a clear "Course
+   search not configured" error if `PROXY_URL` is ever unset. **This does not undo the
+   exposure** — the key (`T5G624EKF3RWOEP3M3UICPKAVI`) is still visible in every past
+   commit of `index.html`. Real fix still needed: rotate the key at golfcourseapi.com
+   and update the Worker's `GCAPI_KEY` secret.
 3. **`migrateRecentRounds()` 7-day window.** Rounds older than 7 days at the time a
    scoring rule changes are frozen on old math permanently, with no manual recompute
    option exposed to the user.
@@ -231,3 +272,8 @@ Not fixed yet, flagged for prioritization:
    `manifest.json`, not on disk. Flagged in May, unresolved.
 7. **KV last-write-wins, no conflict resolution** — unresolved since May, untouched in
    the Jul–Aug commits.
+8. **No sign-out UI.** Surfaced Sep 18, 2026 (Phase 2) — the app has no way for a
+   logged-in user to sign out or switch profiles from the UI. A `doReset()` function
+   that did this existed but was never wired to a button and was removed as dead code;
+   if sign-out/switch-profile is wanted, it needs to be built (and wired), not restored
+   as-is.
