@@ -245,6 +245,81 @@ commit.
 
 ---
 
+## API & Sync Audit — September 18, 2026 (Phase 3, audit-only — no fixes applied)
+
+Scope: `golf_proxy_worker.js` and how `golf_bet_tracker.html` talks to it. Per this
+phase's instructions, nothing below was changed in code — findings only.
+
+**1. golfcourseapi.com route shape — still current.**
+Checked `golfcourseapi.com/changelog/`: latest entry is **v1.1.0 (Sep 13, 2026)**,
+described as "purely additive" — it adds `location.latitude`/`location.longitude` to
+`GET /v1/search` and `GET /v1/courses/{id}` responses, no breaking changes, no
+authentication changes. Those are exactly the two paths `golf_proxy_worker.js` calls
+(`BASE_URL + '/search?search_query=...'` and `BASE_URL + '/courses/' + id`). The
+proxy route still matches the live API shape. Could not get the full endpoint/param
+reference from `api.golfcourseapi.com/docs` — that page renders client-side and
+WebFetch only sees the empty shell, so this is confirmed from the changelog, not a
+full spec diff. If Ross wants full certainty, log into the golfcourseapi.com dashboard
+directly and check the docs there.
+
+**2. `/sync/save` and `/sync/load` security gaps — real, undocumented until now.**
+- **CORS is wide open** (`Access-Control-Allow-Origin: '*'` in `golf_proxy_worker.js`
+  `CORS` const). Any website can call `/sync/save` and `/sync/load` directly from a
+  visitor's browser — there's no origin restriction limiting calls to
+  `ruginzo13.github.io`.
+- **No rate limiting on PIN attempts.** `/sync/load` takes `user` + `pin`, hashes the
+  PIN with SHA-256, and compares — with no attempt counter, no lockout, no delay.
+  Client-side, the PIN field only enforces a **minimum of 4 characters**
+  (`golf_bet_tracker.html` `doLogin()`: `pin.length<4`) and is `inputmode="numeric"`
+  as a mobile-keyboard hint only — nothing stops a non-numeric PIN, and nothing is
+  enforced server-side either. A 4-digit numeric PIN is 10,000 combinations; combined
+  with wide-open CORS and no rate limit, any known or guessed username (`user:` +
+  lowercase name — usernames are effectively public, they're just first names people
+  type in) is brute-forceable in a small number of requests from anywhere.
+- **PIN hashing is bare, unsalted SHA-256** (`sha256(String(pin))` in the Worker).
+  Since PINs are short and numeric-ish, this is not meaningfully different from
+  storing them in plaintext against offline attack (rainbow table over 10,000 4-digit
+  values is instant) — it only protects against a casual glance at the raw KV value.
+- **Impact if exploited:** an attacker who brute-forces a PIN gets that user's full
+  synced state (`profile`, `sG` roster, all `rounds`) via `/sync/load`, and can
+  overwrite it via `/sync/save` (last-write-wins, no ownership check beyond the PIN
+  match). Not financial data — this app explicitly does not move money — but it is
+  personal round history and could let someone silently corrupt another user's data.
+- **Not fixed in this phase per instructions.** Candidate fixes for Ross to weigh
+  (none implemented): rate-limit `/sync/load` by IP+user in KV (e.g. exponential
+  backoff after N failures), restrict CORS to the known GitHub Pages origin, salt the
+  PIN hash (a per-user random salt stored alongside `pinHash`), and/or require a
+  longer minimum PIN client- and server-side.
+
+**3. `sw.js` cache-first staleness — confirmed, propose-only per instructions.**
+`sw.js`'s fetch handler (`return cached || networkFetch`) serves the cached
+`index.html`/app shell immediately if present, and only updates the cache in the
+background for the *next* load. Combined with `self.skipWaiting()` +
+`self.clients.claim()` in `install`/`activate`, a new service worker takes control of
+open tabs immediately, but the page itself was already served from the old cache on
+that load — so a bet-math rule change (like the Aug 1/13 Dots/Junk rewrite, or the
+6/6/6 best-ball fix) may not actually reach a user's screen until their *second*
+visit after a deploy, not their first. **Proposed fix (not implemented — needs Ross's
+OK):** have the client listen for `navigator.serviceWorker.controllerchange` (fires
+when a new SW takes over) and show a small "Update available — reload" banner via
+`showN()`-style notification, or auto-reload once no unsaved scorecard input is
+in-flight. This is a genuinely new capability (new event listener + a bit of UI), not
+a one-line fix, so it's being proposed rather than applied in this audit-only phase.
+
+**4. `GOLF_SYNC` KV binding documentation — accurate, with one adjacent stale line.**
+CLAUDE.md's Known Architectural Debt entry ("KV namespace `GOLF_SYNC` must be
+manually bound... App degrades gracefully to local-only if not configured") is still
+correct — traced through `doLogin()`'s catch branch: a Worker 503 (`KV storage not
+configured`) falls into the generic error branch, which signs the user in local-only
+with a "cloud offline" notice, exactly as documented. **However**, the very next
+bullet in that same section — "`golf_bet_tracker.html` hardcodes the golfcourseapi.com
+key in plaintext as an unused fallback (line ~95)" — is now **stale**, since Phase 2
+(this session, earlier) removed that key entirely. Not fixed here since it's a docs
+edit outside this phase's stated scope (API/sync audit, not doc cleanup), but flagged
+for Phase 7 (Close the Loop) or an explicit ad-hoc fix now if Ross wants it sooner.
+
+---
+
 ## Known Issues — Unresolved (as of Sep 18, 2026)
 
 Not fixed yet, flagged for prioritization:
