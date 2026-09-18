@@ -1,0 +1,2129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>⛳ Golf Bet Tracker</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00130c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Golf Bets">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Courier New',Courier,monospace;background:#001e12;color:#f5edd5;min-height:100vh;font-size:13px}
+.hdr{background:#00130c;border-bottom:3px solid #c9991e;padding:14px 18px 0;position:sticky;top:0;z-index:100}
+.ttl{font-size:21px;color:#f0bf30;letter-spacing:3px;font-weight:500;margin-bottom:10px}
+.tabs{display:flex;gap:2px;flex-wrap:wrap}
+.tab{padding:7px 14px;background:transparent;border:none;color:#3a6040;cursor:pointer;font:600 10px 'Courier New';letter-spacing:1.5px;text-transform:uppercase;border-radius:4px 4px 0 0;transition:all .15s}
+.tab.act{background:#c9991e;color:#00130c;font-weight:800}
+.bd{padding:16px;max-width:960px;margin:0 auto}
+.card{background:#002810;border:1px solid #1a4a28;border-radius:8px;padding:14px;margin-bottom:12px}
+.ct{font-size:10px;font-weight:700;color:#f0bf30;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
+input,select{background:#001208;border:1px solid #1a4028;border-radius:4px;padding:6px 9px;color:#f5edd5;font:12px 'Courier New';outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:#c9991e}
+select option{background:#001208;color:#f5edd5}
+input[type=checkbox]{width:16px;height:16px;accent-color:#c9991e;cursor:pointer;vertical-align:middle}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+.tog{border-radius:5px;padding:8px 18px;cursor:pointer;font:800 12px 'Courier New';letter-spacing:2px;min-width:66px}
+.tog.on{background:#c9991e;color:#00130c;border:2px solid #f0bf30}
+.tog.off{background:#200808;color:#e05050;border:2px solid #601010}
+.btn{border:1px solid #1a4028;background:#001208;color:#7acc90;border-radius:4px;padding:6px 13px;cursor:pointer;font:500 11px 'Courier New';transition:all .15s}
+.btn:hover{border-color:#7acc90}
+.btn.del{background:#1c0808;color:#ff9090;border-color:#4a1010}
+.btn.sm{padding:4px 9px;font-size:10px}
+.btn.gold{background:#c9991e;color:#00130c;border-color:#f0bf30;font-weight:700}
+.btn.gold:hover{background:#f0bf30}
+.row{display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap;margin-bottom:9px}
+.lbl{font-size:10px;color:#4a7050;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.info{font-size:10px;color:#2a5030;line-height:1.6;margin-top:5px}
+.mu{background:#001a0c;border:1px solid #143220;border-radius:6px;padding:11px;margin-bottom:8px}
+.scinp{width:33px;height:26px;text-align:center;padding:2px;border-radius:4px;font:700 13px 'Courier New';display:block}
+.hcinp{width:28px;height:22px;text-align:center;padding:1px;border-radius:3px;font:600 10px 'Courier New';background:#001208;border:1px solid #143220;color:#7acc90;display:block}
+.parinp{width:28px;height:22px;text-align:center;padding:1px;border-radius:3px;font:600 10px 'Courier New';background:#001208;border:1px solid #143220;color:#c9991e;display:block}
+.rrow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #001a0c}
+.rrow:last-child{border-bottom:none}
+.ledrow{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;margin-bottom:6px;border-radius:6px}
+.pos{color:#30f858;font-weight:700}.neg{color:#ff5a5a;font-weight:700}.neu{color:#4a7050}
+.wb{border:none;border-radius:3px;padding:3px 7px;cursor:pointer;font:700 9px 'Courier New'}
+.wb.on{background:#c9991e;color:#00130c}.wb.off{background:#001208;color:#3a6040;border:1px solid #1a4028}
+.ntf{background:rgba(201,153,30,.15);border:1px solid rgba(201,153,30,.45);border-radius:6px;padding:9px 15px;margin-bottom:12px;color:#f0bf30;font-size:12px;display:none}
+.ntf.on{display:block}
+.djtbl{border-collapse:collapse;width:100%;font-size:11px}
+.djtbl th{color:#c9991e;padding:4px 5px;text-align:center;border-bottom:1px solid #1a4028;font-weight:500}
+.djtbl td{padding:3px 4px;text-align:center;border-bottom:1px solid #001a0c}
+.seg{background:rgba(201,153,30,.05);border:1px solid rgba(201,153,30,.12);border-radius:4px;padding:7px 11px;margin-bottom:5px;font-size:11px;color:#a0c8a8}
+.npb{padding:8px 18px;cursor:pointer;font:700 13px 'Courier New';border-radius:4px;border:none;transition:all .15s}
+.npb.a{background:#c9991e;color:#00130c}
+.npb.o{background:#001208;color:#3a6040;border:1px solid #1a4028}
+.stkbadge{background:rgba(136,200,160,.1);border:1px solid rgba(136,200,160,.25);border-radius:4px;padding:5px 10px;font-size:10px;color:#7acc90;margin-bottom:9px}
+/* Course search */
+#cs-wrap{position:relative}
+#cs-drop{position:absolute;z-index:30;background:#002810;border:1px solid #c9991e;border-radius:4px;width:100%;max-height:200px;overflow-y:auto;top:calc(100% + 2px);left:0;display:none}
+.cri{padding:9px 11px;cursor:pointer;font-size:11px;border-bottom:1px solid #1a4028;color:#f5edd5}
+.cri:hover{background:#003618;color:#f0bf30}
+/* Login */
+.lc{background:#002810;border:2px solid #c9991e;border-radius:12px;padding:28px;max-width:400px;margin:40px auto}
+.bi{background:#001208;border:2px solid #1a4028;border-radius:6px;padding:12px 14px;color:#f5edd5;font:500 15px 'Courier New';outline:none;width:100%;margin-top:4px}
+.bi:focus{border-color:#c9991e}
+.ferr{color:#ff8080;font-size:11px;margin:8px 0 4px;min-height:16px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// ── Storage (localStorage) ────────────────────────────────────────────────────
+var storage={
+  get:function(k){try{var v=localStorage.getItem('gbt_'+k);return Promise.resolve(v!==null?{key:k,value:v}:null);}catch(e){return Promise.resolve(null);}},
+  set:function(k,v){try{localStorage.setItem('gbt_'+k,v);return Promise.resolve({key:k,value:v});}catch(e){return Promise.resolve(null);}},
+  del:function(k){try{localStorage.removeItem('gbt_'+k);return Promise.resolve(true);}catch(e){return Promise.resolve(false);}},
+  list:function(prefix){try{var keys=[];for(var i=0;i<localStorage.length;i++){var key=localStorage.key(i);if(key&&key.startsWith('gbt_'+prefix))keys.push(key.slice(4));}return Promise.resolve({keys:keys});}catch(e){return Promise.resolve({keys:[]});}}
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+var loggedIn=false,profile=null,loginErr='';
+var TAB='setup',numP=2,nM='',ntT=null;
+var showNewP=[false,false,false,false];
+var editingRoundId=null;
+var csTimer=null;
+// ── Golf Course API ───────────────────────────────────────────────────────────
+var API_KEY='T5G624EKF3RWOEP3M3UICPKAVI'; // golfcourseapi.com key
+var PROXY_URL='https://golf-proxy.rmg-1313.workers.dev'; // Cloudflare Worker proxy
+var API_BASE='https://api.golfcourseapi.com/v1';
+var courseTeeSets=[],courseTeeIdx=0,lastCourseId='',courseCache={};
+var sG=[],rounds=[];
+var P=[{name:'',hcp:10,on:true},{name:'',hcp:14,on:true},{name:'',hcp:6,on:false},{name:'',hcp:20,on:false}];
+var cN='';
+var DEF=[{n:1,par:4,hcp:1},{n:2,par:5,hcp:13},{n:3,par:3,hcp:7},{n:4,par:4,hcp:3},{n:5,par:4,hcp:11},{n:6,par:5,hcp:5},{n:7,par:3,hcp:17},{n:8,par:4,hcp:9},{n:9,par:4,hcp:15},{n:10,par:4,hcp:2},{n:11,par:5,hcp:14},{n:12,par:3,hcp:8},{n:13,par:4,hcp:4},{n:14,par:4,hcp:12},{n:15,par:5,hcp:6},{n:16,par:3,hcp:18},{n:17,par:4,hcp:10},{n:18,par:4,hcp:16}];
+var C=DEF.map(function(h){return Object.assign({},h);});
+var GR=Array(4).fill(0).map(function(){return Array(18).fill('');});
+var BT={
+  nassau:{on:false,h2h:true,teams:false,mus:[{p1:0,p2:1,front:5,back:5,tot:10}],tmus:[]},
+  match:{on:false,mus:[{p1:0,p2:1,stake:10}]},
+  wolf:{on:false,stake:2},s666:{on:false,stake:5},s531:{on:false,stake:1},
+  p3c:{on:false,birdie:10,par:5,bogey:5},dots:{on:false,val:1,fwy:1,grn:1},
+  junk:{on:false,val:2,greenie:2,sandy:2,barky:2,polie:2,birdie:2,eagle:5,hio:20}
+};
+var WD=Array(18).fill(0).map(function(){return{dec:null};});
+var DT=Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){return{f:false,g:false};});});
+var JK=Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){return{gr:false,sa:false,ba:false,po:false};});});
+var P3C=Array(18).fill(0).map(function(){return{cp:null,tp:false};});
+var RF={roundPayer:null,roundAmt:0,bookPayer:null,bookAmt:0,feeExclude:[]};
+var uiState={dotsOpen:false,junkOpen:false};
+var syncPin=''; // stored locally so background sync doesn't need to re-ask
+
+// ── Persistence ───────────────────────────────────────────────────────────────
+async function ldAll(){
+  try{var g=await storage.get('sGolfers');if(g)sG=JSON.parse(g.value);}catch(e){}
+  try{var pr=await storage.get('prof');if(pr)profile=JSON.parse(pr.value);}catch(e){}
+  try{var sp=await storage.get('pin');if(sp)syncPin=sp.value;}catch(e){}
+  try{var rl=await storage.list('rnd:');if(rl&&rl.keys&&rl.keys.length){rounds=[];for(var k of rl.keys){try{var r=await storage.get(k);if(r)rounds.push(JSON.parse(r.value));}catch(e){}}}rounds.sort(function(a,b){return b.ts-a.ts;});}catch(e){}
+}
+async function svG(){try{await storage.set('sGolfers',JSON.stringify(sG));}catch(e){}}
+// ── Saved-round recomputation ─────────────────────────────────────────────────
+// Rounds store a frozen `results` snapshot alongside their raw `state`. When a
+// bet rule changes, recompute the snapshot from state rather than trusting it.
+var RULE_FLAG='leaderRuleV2'; // bump to re-score recent rounds when a bet rule changes
+// Missing sub-state must fall back to a NEUTRAL empty, never to the live globals —
+// otherwise a round with partial state gets scored using the round currently open.
+function cpState(v,fb){try{return v==null?fb:JSON.parse(JSON.stringify(v));}catch(e){return fb;}}
+function emptyDT(){return Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){return{f:false,g:false};});});}
+function emptyJK(){return Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){return{gr:false,sa:false,ba:false,po:false};});});}
+function emptyP3C(){return Array(18).fill(0).map(function(){return{cp:null,tp:false};});}
+function emptyWD(){return Array(18).fill(0).map(function(){return{dec:null};});}
+function withSavedState(s,fn){
+  var bk={C:C,GR:GR,BT:BT,DT:DT,JK:JK,P3C:P3C,WD:WD,P:P,cN:cN,numP:numP,RF:RF};
+  try{
+    C=cpState(s.C,[]);GR=cpState(s.GR,[]);BT=cpState(s.BT,{});P=cpState(s.P,[]);
+    DT=cpState(s.DT,emptyDT());JK=cpState(s.JK,emptyJK());
+    P3C=cpState(s.P3C,emptyP3C());WD=cpState(s.WD,emptyWD());
+    RF=cpState(s.RF,{roundPayer:null,roundAmt:0,bookPayer:null,bookAmt:0,feeExclude:[]});
+    cN=s.cN||'';numP=s.numP||2;
+    invalidateCalcCache();
+    return fn();
+  }finally{
+    C=bk.C;GR=bk.GR;BT=bk.BT;DT=bk.DT;JK=bk.JK;P3C=bk.P3C;WD=bk.WD;P=bk.P;
+    cN=bk.cN;numP=bk.numP;RF=bk.RF;
+    invalidateCalcCache();
+  }
+}
+function roundResultsFromState(rd){
+  if(!rd||!rd.state)return null;
+  var s=rd.state;
+  // Only score a round whose own state is complete enough to trust.
+  if(!Array.isArray(s.C)||!s.C.length)return null;
+  if(!Array.isArray(s.GR)||!Array.isArray(s.P)||!s.P.length)return null;
+  if(!s.BT||typeof s.BT!=='object')return null;
+  return withSavedState(s,function(){
+    var a=ais();if(!a.length)return null;
+    var ov=overall(),res={};
+    a.forEach(function(i){res[pn(i)]=Math.round((ov[i]||0)*100)/100;});
+    return res;
+  });
+}
+// Re-price recent rounds under the current Dots rule. Rounds older than the
+// window keep the numbers they were settled on; each round migrates only once.
+async function migrateRecentRounds(){
+  var cutoff=Date.now()-7*24*60*60*1000,changed=0;
+  for(var i=0;i<rounds.length;i++){
+    var rd=rounds[i];
+    if(!rd||!rd.state||!rd.ts||rd.ts<cutoff)continue;
+    if(rd[RULE_FLAG])continue;
+    var fresh=null;
+    try{fresh=roundResultsFromState(rd);}catch(e){continue;}
+    if(!fresh)continue;
+    var diff=JSON.stringify(fresh)!==JSON.stringify(rd.results);
+    rd.results=fresh;rd[RULE_FLAG]=true;
+    if(diff)changed++;
+    try{await storage.set(rd.id,JSON.stringify(rd));}catch(e){}
+  }
+  if(changed)cloudSyncBg();
+  return changed;
+}
+async function svRound(){
+  var a=ais(),ov=overall();
+  var newState=JSON.parse(JSON.stringify({C:C,GR:GR,BT:BT,DT:DT,JK:JK,P3C:P3C,WD:WD,P:P,cN:cN,numP:numP,RF:RF}));
+  // Keep cents — split pots produce fractional balances that must still net to zero.
+  var results={};a.forEach(function(i){results[pn(i)]=Math.round((ov[i]||0)*100)/100;});
+  if(editingRoundId){
+    // Update existing round in-place
+    var idx=rounds.findIndex(function(r){return r.id===editingRoundId;});
+    if(idx>=0){
+      rounds[idx].state=newState;
+      rounds[idx].results=results;
+      rounds[idx].players=a.map(pn);
+      rounds[idx].hcps=a.map(function(i){return P[i].hcp;});
+      rounds[idx].course=cN||rounds[idx].course;
+      rounds[idx][RULE_FLAG]=true; // already priced under the current rules
+      try{await storage.set(rounds[idx].id,JSON.stringify(rounds[idx]));showN('Round updated!');cloudSyncBg();}catch(e){showN('Save failed');}
+    }
+  }else{
+    var ts=Date.now();
+    var rd={
+      id:'rnd:'+ts,ts:ts,
+      date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+      course:cN||'Unknown',
+      players:a.map(pn),hcps:a.map(function(i){return P[i].hcp;}),
+      results:results,
+      state:newState
+    };
+    rd[RULE_FLAG]=true; // already priced under the current rules
+    try{await storage.set(rd.id,JSON.stringify(rd));rounds.unshift(rd);editingRoundId=rd.id;showN('Round saved!');cloudSyncBg();}catch(e){showN('Save failed');}
+  }
+  render();
+}
+function loadRound(id){
+  var rd=rounds.find(function(r){return r.id===id;});
+  if(!rd||!rd.state){showN('No full state saved for this round');return;}
+  var s=rd.state;
+  C=JSON.parse(JSON.stringify(s.C));
+  GR=JSON.parse(JSON.stringify(s.GR));
+  BT=JSON.parse(JSON.stringify(s.BT));
+  DT=JSON.parse(JSON.stringify(s.DT));
+  JK=JSON.parse(JSON.stringify(s.JK));
+  P3C=JSON.parse(JSON.stringify(s.P3C));
+  WD=JSON.parse(JSON.stringify(s.WD));
+  P=JSON.parse(JSON.stringify(s.P));
+  RF=s.RF?JSON.parse(JSON.stringify(s.RF)):{roundPayer:null,roundAmt:0,bookPayer:null,bookAmt:0,feeExclude:[]};
+  cN=s.cN||'';numP=s.numP||2;
+  showNewP=[false,false,false,false];
+  editingRoundId=rd.id;
+  invalidateCalcCache();
+  TAB='results';
+  render();
+}
+function newRound(){
+  editingRoundId=null;
+  C=DEF.map(function(h){return Object.assign({},h);});
+  GR=Array(4).fill(0).map(function(){return Array(18).fill('');});
+  DT=Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){return{f:false,g:false};});});
+  JK=Array(18).fill(0).map(function(){return Array(4).fill(0).map(function(){return{gr:false,sa:false,ba:false,po:false};});});
+  P3C=Array(18).fill(0).map(function(){return{cp:null,tp:false};});
+  WD=Array(18).fill(0).map(function(){return{dec:null};});
+  RF={roundPayer:null,roundAmt:0,bookPayer:null,bookAmt:0,feeExclude:[]};
+  invalidateCalcCache();
+  TAB='scores';
+  render();
+}
+async function deleteRound(id){
+  if(!confirm('Delete this round?'))return;
+  try{await storage.del(id);}catch(e){}
+  rounds=rounds.filter(function(r){return r.id!==id;});
+  render();
+}
+function showN(m){nM=m;var e=document.getElementById('ntf');if(e){e.textContent=m;e.className='ntf on';}clearTimeout(ntT);ntT=setTimeout(function(){nM='';var e=document.getElementById('ntf');if(e)e.className='ntf';},3000);}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+var _nsCache=null,_netCache=null;
+function invalidateCalcCache(){_nsCache=null;_netCache=null;}
+function ais(){return P.reduce(function(a,p,i){return p.on?a.concat(i):a;},[]); }
+function minH(){var a=ais();return a.length?Math.min.apply(null,a.map(function(i){return P[i].hcp;})):0;}
+function hSt(d,h){return Math.floor(d/18)+(d%18>0&&h<=d%18?1:0);}
+function NS(){
+  if(_nsCache)return _nsCache;
+  _nsCache=P.map(function(p,i){if(!p.on)return Array(18).fill(0);var d=Math.max(0,p.hcp-minH());return C.map(function(h){return hSt(d,h.hcp);});});
+  return _nsCache;
+}
+function NET(){
+  if(_netCache)return _netCache;
+  var ns=NS();
+  _netCache=P.map(function(p,i){if(!p.on)return Array(18).fill(null);return C.map(function(h,hi){var g=parseInt(GR[i][hi]);return isNaN(g)?null:g-ns[i][hi];});});
+  return _netCache;
+}
+function pn(i){return((P[i]&&P[i].name)||'').trim()||'P'+(i+1);}
+function sC(d){return d<=-2?'#f5a030':d===-1?'#ff3030':d===0?'#60e030':d===1?'#30aaff':'#c060ff';}
+// Money formatting — shows cents only when an amount is fractional (split pots can be odd).
+function amt$(v){var r=Math.round(v*100)/100;return Math.abs(r)%1===0?String(Math.abs(r)):Math.abs(r).toFixed(2);}
+function fm(v){var r=Math.round(v*100)/100;return Math.abs(r)<0.005?'$0':(r>0?'+':'-')+'$'+amt$(r);}
+function nassauStrokes(p1i,p2i){
+  if(!P[p1i]||!P[p2i])return'';
+  var mh=minH(),s1=Math.max(0,P[p1i].hcp-mh),s2=Math.max(0,P[p2i].hcp-mh);
+  if(s1===s2)return'Even handicaps — no strokes given';
+  var giver=s1>s2?{n:pn(p1i),gs:s1,rs:s2}:{n:pn(p2i),gs:s2,rs:s1};
+  return pn(p1i)+' (+'+s1+') vs '+pn(p2i)+' (+'+s2+') → '+giver.n+' gets '+(giver.gs-giver.rs)+' stroke'+(giver.gs-giver.rs>1?'s':'');
+}
+
+// ── Bet Math ──────────────────────────────────────────────────────────────────
+function nassauHoles(p1,p2,from,to){
+  // Returns {w1,w2,halved,complete} — hole-by-hole match play over holes [from..to]
+  var net=NET(),w1=0,w2=0,halved=0;
+  for(var h=from;h<=to;h++){
+    var n1=net[p1][h],n2=net[p2][h];
+    if(n1==null||n2==null)return{w1:w1,w2:w2,halved:halved,complete:false};
+    if(n1<n2)w1++;else if(n2<n1)w2++;else halved++;
+  }
+  return{w1:w1,w2:w2,halved:halved,complete:true};
+}
+function nassauHolesTeam(t1,t2,from,to){
+  // Best-ball match play: each team's score per hole = lower net of the two teammates
+  var net=NET(),w1=0,w2=0,halved=0;
+  for(var h=from;h<=to;h++){
+    var n1a=net[t1[0]][h],n1b=net[t1[1]][h],n2a=net[t2[0]][h],n2b=net[t2[1]][h];
+    if(n1a==null||n1b==null||n2a==null||n2b==null)return{w1:w1,w2:w2,halved:halved,complete:false};
+    var b1=Math.min(n1a,n1b),b2=Math.min(n2a,n2b);
+    if(b1<b2)w1++;else if(b2<b1)w2++;else halved++;
+  }
+  return{w1:w1,w2:w2,halved:halved,complete:true};
+}
+function nassauLiveStateTeam(t1,t2,from,to){
+  var net=NET(),w1=0,w2=0,played=0;
+  for(var h=from;h<=to;h++){
+    var n1a=net[t1[0]][h],n1b=net[t1[1]][h],n2a=net[t2[0]][h],n2b=net[t2[1]][h];
+    if(n1a==null||n1b==null||n2a==null||n2b==null)continue;
+    played++;
+    var b1=Math.min(n1a,n1b),b2=Math.min(n2a,n2b);
+    if(b1<b2)w1++;else if(b2<b1)w2++;
+  }
+  var total=to-from+1,remaining=total-played,diff=w1-w2;
+  return{w1:w1,w2:w2,played:played,remaining:remaining,diff:diff,closed:played>0&&Math.abs(diff)>remaining};
+}
+// Head-to-head and 2v2 are independent formats — either can run without the other.
+// Saved rounds predate these flags: h2h defaults ON (that was the old behaviour),
+// teams defaults to whether the round actually had team matchups.
+function nassauH2HOn(){return BT.nassau.h2h!==false;}
+function nassauTeamsOn(){
+  if(BT.nassau.teams!=null)return !!BT.nassau.teams;
+  return !!(BT.nassau.tmus&&BT.nassau.tmus.length);
+}
+function nassauMus(){return nassauH2HOn()?(BT.nassau.mus||[]):[];}
+function nassauTmus(){return nassauTeamsOn()?(BT.nassau.tmus||[]):[];}
+function nassauCalc(){
+  if(!BT.nassau.on)return null;
+  if(!nassauH2HOn()&&!nassauTeamsOn())return null; // both formats off — no bet at all
+  var r={};ais().forEach(function(i){r[i]=0;});
+  nassauMus().forEach(function(mu){
+    var p1=mu.p1,p2=mu.p2;if(!P[p1]||!P[p1].on||!P[p2]||!P[p2].on)return;
+    [[0,8,+mu.front],[9,17,+mu.back],[0,17,+mu.tot]].forEach(function(seg){
+      var res=nassauHoles(p1,p2,seg[0],seg[1]);
+      if(!res.complete)return;
+      if(res.w1>res.w2){r[p1]+=seg[2];r[p2]-=seg[2];}
+      else if(res.w2>res.w1){r[p2]+=seg[2];r[p1]-=seg[2];}
+    });
+  });
+  nassauTmus().forEach(function(mu){
+    var t1=mu.t1,t2=mu.t2;
+    if(!t1||!t2||t1.length!==2||t2.length!==2)return;
+    if(t1.concat(t2).some(function(p){return!P[p]||!P[p].on;}))return;
+    [[0,8,+mu.front],[9,17,+mu.back],[0,17,+mu.tot]].forEach(function(seg){
+      var res=nassauHolesTeam(t1,t2,seg[0],seg[1]);
+      if(!res.complete)return;
+      if(res.w1>res.w2){t1.forEach(function(p){r[p]+=seg[2];});t2.forEach(function(p){r[p]-=seg[2];});}
+      else if(res.w2>res.w1){t2.forEach(function(p){r[p]+=seg[2];});t1.forEach(function(p){r[p]-=seg[2];});}
+    });
+  });
+  return r;
+}
+function nassauLiveState(p1,p2,from,to){
+  var net=NET(),w1=0,w2=0,played=0;
+  for(var h=from;h<=to;h++){var n1=net[p1][h],n2=net[p2][h];if(n1==null||n2==null)continue;played++;if(n1<n2)w1++;else if(n2<n1)w2++;}
+  var total=to-from+1,remaining=total-played,diff=w1-w2;
+  return{w1:w1,w2:w2,played:played,remaining:remaining,diff:diff,closed:played>0&&Math.abs(diff)>remaining};
+}
+function fmtLiveState(st,p1n,p2n){
+  if(st.played===0)return'<span style="color:#2a5030">—</span>';
+  if(st.closed){var wn=st.diff>0?p1n:p2n;return'<span style="color:#30f858;font-weight:700">'+wn+' '+Math.abs(st.diff)+(st.remaining>0?'&amp;'+st.remaining:' UP')+'</span>';}
+  if(st.diff===0)return'<span style="color:#7acc90">All Sq</span>';
+  var wn=st.diff>0?p1n:p2n;
+  return'<span style="color:#30f858">'+wn+' '+Math.abs(st.diff)+'UP</span>';
+}
+function buildNassauLiveHtml(){
+  if(!BT.nassau.on)return'';
+  var h='';
+  nassauMus().forEach(function(mu){
+    if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
+    var p1n=pn(mu.p1),p2n=pn(mu.p2);
+    var fS=nassauLiveState(mu.p1,mu.p2,0,8),bS=nassauLiveState(mu.p1,mu.p2,9,17),oS=nassauLiveState(mu.p1,mu.p2,0,17);
+    h+='<div style="font-size:10px;color:#88c898;margin-bottom:3px">'+p1n+' <span style="color:#4a7050">vs</span> '+p2n;
+    h+=' &nbsp;<span style="color:#4a7050">F('+fS.played+'):</span> '+fmtLiveState(fS,p1n,p2n);
+    h+=' &nbsp;<span style="color:#4a7050">B('+bS.played+'):</span> '+fmtLiveState(bS,p1n,p2n);
+    h+=' &nbsp;<span style="color:#4a7050">O('+oS.played+'):</span> '+fmtLiveState(oS,p1n,p2n);
+    h+='</div>';
+  });
+  nassauTmus().forEach(function(mu){
+    if(!mu.t1||!mu.t2||mu.t1.concat(mu.t2).some(function(p){return!P[p]||!P[p].on;}))return;
+    var t1n=pn(mu.t1[0])+'/'+pn(mu.t1[1]),t2n=pn(mu.t2[0])+'/'+pn(mu.t2[1]);
+    var fS=nassauLiveStateTeam(mu.t1,mu.t2,0,8),bS=nassauLiveStateTeam(mu.t1,mu.t2,9,17),oS=nassauLiveStateTeam(mu.t1,mu.t2,0,17);
+    h+='<div style="font-size:10px;color:#88c898;margin-bottom:3px">'+t1n+' <span style="color:#4a7050">vs</span> '+t2n+' <span style="color:#c9991e;font-size:8px">2v2</span>';
+    h+=' &nbsp;<span style="color:#4a7050">F('+fS.played+'):</span> '+fmtLiveState(fS,t1n,t2n);
+    h+=' &nbsp;<span style="color:#4a7050">B('+bS.played+'):</span> '+fmtLiveState(bS,t1n,t2n);
+    h+=' &nbsp;<span style="color:#4a7050">O('+oS.played+'):</span> '+fmtLiveState(oS,t1n,t2n);
+    h+='</div>';
+  });
+  return h;
+}
+function updateNassauLive(){var el=document.getElementById('nassau-live');if(el)el.innerHTML=buildNassauLiveHtml();}
+function matchCalc(){
+  if(!BT.match.on)return null;
+  var net=NET(),r={};ais().forEach(function(i){r[i]=0;});
+  BT.match.mus.forEach(function(mu){
+    var p1=mu.p1,p2=mu.p2,sk=+mu.stake;if(!P[p1]||!P[p1].on||!P[p2]||!P[p2].on)return;
+    var run=0,played=0;C.forEach(function(_,hi){var n1=net[p1][hi],n2=net[p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
+    var rem=18-played,abs=Math.abs(run);if((abs>rem&&played>0)||played===18){if(run!==0){var w=run>0?p1:p2;r[w]+=sk;r[w===p1?p2:p1]-=sk;}}
+  });
+  return r;
+}
+function wolfCalc(){
+  var a=ais();if(!BT.wolf.on||a.length!==4)return null;
+  var sk=+BT.wolf.stake,net=NET(),r={};a.forEach(function(i){r[i]=0;});
+  C.forEach(function(_,hi){
+    var wp=a[hi%4],oth=a.filter(function(i){return i!==wp;}),dec=WD[hi].dec;
+    if(dec==null||a.some(function(i){return net[i][hi]==null;}))return;
+    if(dec===-1){var ws=net[wp][hi],bo=Math.min.apply(null,oth.map(function(i){return net[i][hi];}));if(ws<bo){r[wp]+=sk*3;oth.forEach(function(i){r[i]-=sk;});}else if(ws>bo){r[wp]-=sk*3;oth.forEach(function(i){r[i]+=sk;});}}
+    else{var wT=[wp,dec],oT=oth.filter(function(i){return i!==dec;});var wb=Math.min.apply(null,wT.map(function(i){return net[i][hi];})),ob=Math.min.apply(null,oT.map(function(i){return net[i][hi];}));if(wb<ob){wT.forEach(function(i){r[i]+=sk;});oT.forEach(function(i){r[i]-=sk;});}else if(ob<wb){wT.forEach(function(i){r[i]-=sk;});oT.forEach(function(i){r[i]+=sk;});}}
+  });
+  return r;
+}
+function init666Segs(){
+  var a=ais();if(a.length!==4)return;
+  BT.s666.segs=[{t1:[a[0],a[1]],t2:[a[2],a[3]]},{t1:[a[0],a[2]],t2:[a[1],a[3]]},{t1:[a[0],a[3]],t2:[a[1],a[2]]}];
+}
+function ensure666Segs(){
+  var a=ais();if(a.length!==4)return;
+  var segs=BT.s666.segs;
+  if(!segs||segs.length!==3){init666Segs();return;}
+  var flat=[];segs.forEach(function(s){flat=flat.concat(s.t1,s.t2);});
+  if(!flat.every(function(pi){return a.indexOf(pi)!==-1;}))init666Segs();
+}
+function set666Team(si,slot,pi){
+  ensure666Segs();
+  var a=ais(),seg=BT.s666.segs[si],t1=seg.t1.slice();
+  t1[slot]=pi;
+  if(t1[0]===t1[1])t1[1-slot]=a.filter(function(p){return p!==pi;})[0];
+  seg.t1=t1;
+  seg.t2=a.filter(function(p){return t1.indexOf(p)===-1;});
+  render();
+}
+function s666SegState(seg,si){
+  // Single source of truth for one 6-hole segment — best-ball NET match play.
+  // Each team's hole score is the lower net of its two partners.
+  var net=NET(),t1=seg.t1,t2=seg.t2,w1=0,w2=0,played=0;
+  for(var h=si*6;h<(si+1)*6;h++){
+    if(t1.concat(t2).some(function(p){return net[p][h]==null;}))continue;
+    played++;
+    var s1=Math.min(net[t1[0]][h],net[t1[1]][h]),s2=Math.min(net[t2[0]][h],net[t2[1]][h]);
+    if(s1<s2)w1++;else if(s2<s1)w2++;
+  }
+  var remaining=6-played,diff=w1-w2;
+  return{w1:w1,w2:w2,played:played,remaining:remaining,diff:diff,closed:played>0&&Math.abs(diff)>remaining};
+}
+function s666Calc(){
+  var a=ais();if(!BT.s666.on||a.length!==4)return null;
+  ensure666Segs();
+  var sk=+BT.s666.stake,r={};a.forEach(function(i){r[i]=0;});
+  BT.s666.segs.forEach(function(seg,si){
+    var st=s666SegState(seg,si);
+    if(st.w1>st.w2){seg.t1.forEach(function(p){r[p]+=sk;});seg.t2.forEach(function(p){r[p]-=sk;});}
+    else if(st.w2>st.w1){seg.t2.forEach(function(p){r[p]+=sk;});seg.t1.forEach(function(p){r[p]-=sk;});}
+  });
+  return r;
+}
+function build666LiveHtml(){
+  var a=ais();if(!BT.s666.on||a.length!==4)return'';
+  ensure666Segs();
+  var h='';
+  ['H1–6','H7–12','H13–18'].forEach(function(lbl,si){
+    var seg=BT.s666.segs[si],st=s666SegState(seg,si);
+    var t1n=pn(seg.t1[0])+'/'+pn(seg.t1[1]),t2n=pn(seg.t2[0])+'/'+pn(seg.t2[1]);
+    h+='<div style="font-size:10px;color:#88c898;margin-bottom:3px">';
+    h+='<span style="color:#4a7050">'+lbl+'</span> '+t1n+' <span style="color:#4a7050">vs</span> '+t2n;
+    h+=' &nbsp;<span style="color:#4a7050">('+st.played+'/6):</span> '+fmtLiveState(st,t1n,t2n);
+    h+='</div>';
+  });
+  return h;
+}
+function update666Live(){var el=document.getElementById('s666-live');if(el)el.innerHTML=build666LiveHtml();}
+function s531Pts(){
+  var a=ais(),net=NET(),pts={};a.forEach(function(i){pts[i]=0;});
+  C.forEach(function(_,hi){var sc=a.map(function(i){return{i:i,v:net[i][hi]};});if(sc.some(function(x){return x.v==null;}))return;sc.sort(function(x,y){return x.v-y.v;});var pp=sc[0].v===sc[2].v?[3,3,3]:sc[0].v===sc[1].v?[4,4,1]:sc[1].v===sc[2].v?[5,2,2]:[5,3,1];pp.forEach(function(p,ri){pts[sc[ri].i]+=p;});});
+  return pts;
+}
+function s531Calc(){
+  var a=ais();if(!BT.s531.on||a.length!==3)return null;
+  var sk=+BT.s531.stake,pts=s531Pts(),r={};a.forEach(function(i){r[i]=0;});
+  for(var x=0;x<a.length-1;x++)for(var y=x+1;y<a.length;y++){var di=pts[a[x]]-pts[a[y]];r[a[x]]+=di*sk;r[a[y]]-=di*sk;}
+  return r;
+}
+function p3cCalc(){
+  if(!BT.p3c.on)return null;
+  var a=ais(),r={};a.forEach(function(i){r[i]=0;});
+  C.forEach(function(hole,hi){
+    if(hole.par!==3)return;var cp=P3C[hi].cp,tp=P3C[hi].tp;
+    if(cp==null||!P[cp]||!P[cp].on)return;
+    var g=parseInt(GR[cp][hi]);if(isNaN(g))return;
+    var diff=g-hole.par,others=a.filter(function(i){return i!==cp;}),n=others.length;
+    if(diff<=-1){var a2=+BT.p3c.birdie;r[cp]+=a2*n;others.forEach(function(i){r[i]-=a2;});}
+    else if(diff===0){var b2=+BT.p3c.par;r[cp]+=b2*n;others.forEach(function(i){r[i]-=b2;});}
+    else if(diff>=1&&tp){var c2=+BT.p3c.bogey;r[cp]-=c2*n;others.forEach(function(i){r[i]+=c2;});}
+  });
+  return r;
+}
+function dotRate(){
+  // $ per dot. Falls back to the legacy fwy rate so saved rounds still price correctly.
+  var v=BT.dots.val;if(v==null)v=BT.dots.fwy;return(+v)||0;
+}
+function dotTotals(){
+  // Per-player raw dot count. Leader is decided by COUNT, never by dollars.
+  var a=ais(),cnt={};
+  a.forEach(function(i){cnt[i]=0;});
+  C.forEach(function(hole,hi){a.forEach(function(pi){
+    var d=DT[hi][pi];
+    if(d.f&&hole.par>=4)cnt[pi]++;
+    if(d.g)cnt[pi]++;
+  });});
+  var max=a.length?Math.max.apply(null,a.map(function(i){return cnt[i];})):0;
+  return{cnt:cnt,max:max,leaders:a.filter(function(i){return cnt[i]===max;})};
+}
+function dotsCalc(){
+  if(!BT.dots.on)return null;var a=ais(),r={};a.forEach(function(i){r[i]=0;});
+  if(!a.length)return r;
+  // Only the dot leader(s) get paid. Each trailing player owes the count gap
+  // to the leader times the dot rate; that pot is split among the leaders.
+  var dt=dotTotals(),rate=dotRate(),pot=0;
+  a.forEach(function(i){
+    if(dt.cnt[i]===dt.max)return;
+    var owed=(dt.max-dt.cnt[i])*rate;
+    r[i]-=owed;pot+=owed;
+  });
+  // Split the pot in whole cents, handing the leftover cents to the first leaders,
+  // so the leaders' credits sum to the pot exactly and the round always reconciles.
+  if(pot>0&&dt.leaders.length){
+    var cents=Math.round(pot*100),n=dt.leaders.length,base=Math.floor(cents/n),extra=cents-base*n;
+    dt.leaders.forEach(function(i,k){r[i]+=(base+(k<extra?1:0))/100;});
+  }
+  return r;
+}
+function junkRate(){
+  // $ per junk item. Falls back to the legacy greenie stake for saved rounds.
+  var v=BT.junk.val;if(v==null)v=BT.junk.greenie;return(+v)||0;
+}
+function junkTotals(){
+  // Per-player raw junk count. Leader is decided by COUNT, same as dots.
+  // Manual junk (greenie/sandy/barky/polie) plus auto birdie/eagle/HIO off GROSS.
+  var a=ais(),cnt={};
+  a.forEach(function(i){cnt[i]=0;});
+  C.forEach(function(hole,hi){a.forEach(function(pi){
+    var j=JK[hi][pi];
+    if(j.gr&&hole.par===3)cnt[pi]++;
+    if(j.sa)cnt[pi]++;
+    if(j.ba)cnt[pi]++;
+    if(j.po)cnt[pi]++;
+    var g=parseInt(GR[pi][hi]);if(isNaN(g))return;
+    if(g===1)cnt[pi]++;
+    else if(g===hole.par-2)cnt[pi]++;
+    else if(g===hole.par-1)cnt[pi]++;
+  });});
+  var max=a.length?Math.max.apply(null,a.map(function(i){return cnt[i];})):0;
+  return{cnt:cnt,max:max,leaders:a.filter(function(i){return cnt[i]===max;})};
+}
+function junkCalc(){
+  if(!BT.junk.on)return null;var a=ais(),r={};a.forEach(function(i){r[i]=0;});
+  if(!a.length)return r;
+  // Only the junk leader(s) get paid. Each trailing player owes the count gap
+  // to the leader times the junk rate; that pot is split among the leaders.
+  var jt=junkTotals(),rate=junkRate(),pot=0;
+  a.forEach(function(i){
+    if(jt.cnt[i]===jt.max)return;
+    var owed=(jt.max-jt.cnt[i])*rate;
+    r[i]-=owed;pot+=owed;
+  });
+  // Split in whole cents so the leaders' credits sum to the pot exactly.
+  if(pot>0&&jt.leaders.length){
+    var cents=Math.round(pot*100),n=jt.leaders.length,base=Math.floor(cents/n),extra=cents-base*n;
+    jt.leaders.forEach(function(i,k){r[i]+=(base+(k<extra?1:0))/100;});
+  }
+  return r;
+}
+function betsTotal(){
+  var a=ais(),t={};a.forEach(function(i){t[i]=0;});
+  [nassauCalc(),matchCalc(),wolfCalc(),s666Calc(),s531Calc(),p3cCalc(),dotsCalc(),junkCalc()].forEach(function(res){if(res)a.forEach(function(i){t[i]+=(res[i]||0);});});
+  return t;
+}
+function feesTotal(){
+  var a=ais(),t={};a.forEach(function(i){t[i]=0;});
+  var excl=RF.feeExclude||[];
+  var paying=a.filter(function(i){return excl.indexOf(i)<0;});
+  [[RF.roundPayer,+(RF.roundAmt)||0],[RF.bookPayer,+(RF.bookAmt)||0]].forEach(function(fee){
+    var payer=fee[0],amt=fee[1];
+    if(payer==null||amt<=0||paying.length===0)return;
+    if(paying.indexOf(payer)<0)return; // payer is excluded — gifted players don't pay
+    var share=amt/paying.length;
+    paying.forEach(function(i){
+      if(i===payer){t[i]+=amt-share;}  // payer recoups all others' shares
+      else{t[i]-=share;}               // each non-excluded player owes their share
+    });
+  });
+  return t;
+}
+function overall(){
+  var bt=betsTotal(),ft=feesTotal(),a=ais(),t={};
+  a.forEach(function(i){t[i]=(bt[i]||0)+(ft[i]||0);});
+  return t;
+}
+function settleDebts(ov,a){
+  // Work in integer cents so split pots (e.g. $3.50) settle exactly and
+  // credits always match debits — rounding each side to whole dollars did not.
+  var eps=0.005;
+  var cr=a.filter(function(i){return ov[i]>eps;}).map(function(i){return{i:i,v:Math.round(ov[i]*100)};}).sort(function(a,b){return b.v-a.v;});
+  var db=a.filter(function(i){return ov[i]<-eps;}).map(function(i){return{i:i,v:-Math.round(ov[i]*100)};}).sort(function(a,b){return b.v-a.v;});
+  var tx=[];
+  while(cr.length&&db.length){var c=cr[0],d=db[0],amt=Math.min(c.v,d.v);if(amt>0)tx.push({fr:d.i,to:c.i,amt:amt/100});c.v-=amt;d.v-=amt;if(c.v<1)cr.shift();if(d.v<1)db.shift();}
+  return tx;
+}
+
+// ── Module-level helpers ──────────────────────────────────────────────────────
+function mkBetCard(title,r,a,extra){
+  if(!r)return'';
+  var s='<div style="background:#002810;border:1px solid #1a4a28;border-radius:7px;padding:9px 11px;font-size:11px">';
+  s+='<div style="font-size:9px;font-weight:700;color:#f0bf30;letter-spacing:2px;text-transform:uppercase;margin-bottom:7px;border-bottom:1px solid #1a3820;padding-bottom:5px">'+title+'</div>';
+  if(extra)s+='<div style="margin-bottom:6px">'+extra+'</div>';
+  a.forEach(function(i){var v=r[i]||0;s+='<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="color:#b8d8c0;font-size:11px">'+pn(i)+'</span><span style="font-size:13px;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</span></div>';});
+  s+='</div>';
+  return s;
+}
+function mkBalGrid(bals,a,fSize,mb){
+  fSize=fSize||'19px';mb=mb!==undefined?mb:'16px';
+  var h='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:7px;margin-bottom:'+mb+'">';
+  a.forEach(function(i){var v=bals[i]||0;h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 11px;border-radius:6px;background:'+(v>0?'rgba(48,248,88,.07)':v<0?'rgba(255,90,90,.07)':'rgba(255,255,255,.03)')+';border:1px solid '+(v>0?'rgba(48,248,88,.28)':v<0?'rgba(255,90,90,.28)':'rgba(255,255,255,.08)')+'"><span style="font-weight:700;color:#f5edd5;font-size:13px">'+pn(i)+'</span><span style="font-size:'+fSize+';font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</span></div>';});
+  h+='</div>';return h;
+}
+function mkSettleTxns(txns,compact){
+  if(!txns.length)return'<div style="color:#4a7050;font-size:12px;text-align:center;padding:10px">✓ All square — nothing to settle.</div>';
+  var h='';
+  txns.forEach(function(t){
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:'+(compact?'7px 10px':'9px 12px')+';margin-bottom:6px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid #1a3820">';
+    h+='<span class="neg" style="font-size:'+(compact?'13px':'14px')+';font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.fr)+'</span>';
+    h+='<span style="font-size:10px;color:#4a7050;white-space:nowrap">owes</span>';
+    h+='<span style="font-size:'+(compact?'18px':'22px')+';font-weight:700;color:#f0bf30;min-width:'+(compact?'52px':'60px')+';text-align:center">$'+amt$(t.amt)+'</span>';
+    h+='<span style="font-size:10px;color:#4a7050;white-space:nowrap">to</span>';
+    h+='<span class="pos" style="font-size:'+(compact?'13px':'14px')+';font-weight:700;flex:1;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pn(t.to)+'</span>';
+    h+='</div>';
+  });
+  return h;
+}
+function buildShareText(){
+  var a=ais(),net=NET();
+  var course=cN||'Golf Course';
+  var lines=['⛳ '+course,''];
+  var rPar=C.reduce(function(s,h){return s+h.par;},0);
+  var scoreLines=[];
+  a.forEach(function(i){
+    var gr=GR[i].map(Number);
+    var totG=gr.every(function(v){return!isNaN(v);})?gr.reduce(function(s,b){return s+b;},0):null;
+    var totN=net[i].every(function(v){return v!=null;})?net[i].reduce(function(s,b){return s+b;},0):null;
+    if(totG==null)return;
+    var diff=totN!=null?totN-rPar:null;
+    var ds=diff==null?'':(diff===0?' (E)':diff>0?' (+'+diff+')':' ('+diff+')');
+    scoreLines.push('  '+pn(i)+' — '+totG+' gross'+ds);
+  });
+  if(scoreLines.length){lines.push('📊 Scores');scoreLines.forEach(function(l){lines.push(l);});lines.push('');}
+  var betLines=[];
+  if(BT.nassau.on&&(nassauH2HOn()||nassauTeamsOn())){
+    nassauMus().forEach(function(mu){
+      if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
+      var parts=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
+        var res=nassauHoles(mu.p1,mu.p2,sg[0],sg[1]);if(!res.complete)return'';
+        var w=res.w1>res.w2?pn(mu.p1):res.w2>res.w1?pn(mu.p2):null;
+        return sg[2]+': '+(w?w+' '+Math.max(res.w1,res.w2)+'-'+Math.min(res.w1,res.w2):'Halved');
+      }).filter(Boolean).join(' · ');
+      if(parts)betLines.push('Nassau ('+pn(mu.p1)+' v '+pn(mu.p2)+'): '+parts);
+    });
+    nassauTmus().forEach(function(mu){
+      if(!mu.t1||!mu.t2||mu.t1.concat(mu.t2).some(function(p){return!P[p]||!P[p].on;}))return;
+      var t1n=pn(mu.t1[0])+'/'+pn(mu.t1[1]),t2n=pn(mu.t2[0])+'/'+pn(mu.t2[1]);
+      var parts=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
+        var res=nassauHolesTeam(mu.t1,mu.t2,sg[0],sg[1]);if(!res.complete)return'';
+        var w=res.w1>res.w2?t1n:res.w2>res.w1?t2n:null;
+        return sg[2]+': '+(w?w+' '+Math.max(res.w1,res.w2)+'-'+Math.min(res.w1,res.w2):'Halved');
+      }).filter(Boolean).join(' · ');
+      if(parts)betLines.push('Nassau 2v2 ('+t1n+' v '+t2n+'): '+parts);
+    });
+  }
+  if(BT.match.on){
+    var mnet=NET();
+    BT.match.mus.forEach(function(mu){
+      if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
+      var run=0,played=0;C.forEach(function(_,hi){var n1=mnet[mu.p1][hi],n2=mnet[mu.p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
+      if(!played)return;
+      var rem=18-played,abs=Math.abs(run),ldr=run>0?mu.p1:run<0?mu.p2:null;
+      betLines.push('Match ('+pn(mu.p1)+' v '+pn(mu.p2)+'): '+(ldr?(abs>rem?pn(ldr)+' wins '+abs+'&'+rem:pn(ldr)+' '+abs+'UP'):'All Square'));
+    });
+  }
+  if(BT.dots.on&&dotsCalc()){var dtS=dotTotals(),ds2=[];a.forEach(function(i){if(dtS.cnt[i]>0)ds2.push(pn(i)+' ×'+dtS.cnt[i]+(dtS.leaders.indexOf(i)>-1?' (leader)':''));});if(ds2.length)betLines.push('Dots: '+ds2.join(', '));}
+  if(BT.junk.on&&junkCalc()){var jtS=junkTotals(),js=[];a.forEach(function(i){if(jtS.cnt[i]>0)js.push(pn(i)+' ×'+jtS.cnt[i]+(jtS.leaders.indexOf(i)>-1?' (leader)':''));});if(js.length)betLines.push('Junk: '+js.join(', '));}
+  if(betLines.length){lines.push('🎯 Bets');betLines.forEach(function(l){lines.push('  '+l);});lines.push('');}
+  var bt=betsTotal();
+  var winners=a.filter(function(i){return bt[i]>0.4;}).sort(function(x,y){return bt[y]-bt[x];});
+  var losers=a.filter(function(i){return bt[i]<-0.4;});
+  if(winners.length)lines.push('🏆 '+winners.map(pn).join(' & ')+' won the day');
+  if(losers.length)lines.push('📉 '+losers.map(pn).join(' & ')+' settle up');
+  lines.push('','#GolfBet #Golf');
+  return lines.join('\n');
+}
+function doShare(platform){
+  var txt=buildShareText();
+  function copyFallback(){
+    try{
+      if(navigator.clipboard){navigator.clipboard.writeText(txt).then(function(){showN('📋 Copied to clipboard!');});return;}
+      var ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showN('📋 Copied!');
+    }catch(e){showN('Could not copy');}
+  }
+  if(platform==='native'){
+    if(navigator.share){navigator.share({title:'⛳ Golf Bet Tracker',text:txt}).catch(function(){});}
+    else copyFallback();
+  }else if(platform==='x'){
+    window.open('https://x.com/intent/tweet?text='+encodeURIComponent(txt.slice(0,280)),'_blank');
+  }else if(platform==='ig'){
+    copyFallback();showN('📋 Copied — open Instagram and paste in your story or bio!');
+  }else if(platform==='tt'){
+    copyFallback();showN('📋 Copied — open TikTok and paste in your caption!');
+  }else{
+    copyFallback();
+  }
+}
+// ── Flow Visual — SVG avatar diagram ─────────────────────────────────────────
+function buildFlowVisual(a){
+  var n=a.length;if(n<2)return'';
+  // Collect per-game gross flows (each bet settled independently = gross)
+  var flows=[];
+  var GC={'Nassau':'#f0bf30','Match':'#60c0ff','Wolf':'#e07030','6/6/6':'#c060ff',
+          '5-3-1':'#60e0a0','P3C':'#ff6060','Dots':'#80d840','Junk':'#e0a040','Fees':'#7acc90'};
+  [['Nassau',nassauCalc()],['Match',matchCalc()],['Wolf',wolfCalc()],['6/6/6',s666Calc()],
+   ['5-3-1',s531Calc()],['P3C',p3cCalc()],['Dots',dotsCalc()],['Junk',junkCalc()],['Fees',feesTotal()]
+  ].forEach(function(gd){
+    if(!gd[1])return;
+    settleDebts(gd[1],a).forEach(function(t){flows.push({fr:t.fr,to:t.to,amt:t.amt,game:gd[0],color:GC[gd[0]]||'#f0bf30'});});
+  });
+  if(!flows.length)return'';
+
+  var W=600,H=n===2?300:n===3?450:550;
+  var R=40; // avatar radius
+
+  // Player positions (keep away from edges so labels don't clip)
+  var pos={};
+  var pad=R+70;
+  if(n===2){
+    pos[a[0]]={x:pad,y:H/2};
+    pos[a[1]]={x:W-pad,y:H/2};
+  }else if(n===3){
+    pos[a[0]]={x:W/2,y:pad};
+    pos[a[1]]={x:pad,y:H-pad};
+    pos[a[2]]={x:W-pad,y:H-pad};
+  }else{
+    pos[a[0]]={x:pad,y:pad};
+    pos[a[1]]={x:W-pad,y:pad};
+    pos[a[2]]={x:pad,y:H-pad};
+    pos[a[3]]={x:W-pad,y:H-pad};
+  }
+
+  // Group flows by (fr→to) — combine multiple games into one arrow per direction
+  var pairMap={};
+  flows.forEach(function(f){
+    var k=f.fr+'-'+f.to;
+    if(!pairMap[k]){pairMap[k]={fr:f.fr,to:f.to,flows:[]};}
+    pairMap[k].flows.push(f);
+  });
+
+  // Helper: point on circle edge toward target
+  function edgePt(cx,cy,tx,ty,r){
+    var dx=tx-cx,dy=ty-cy,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<0.001)return{x:cx+r,y:cy};
+    return{x:cx+dx/d*r,y:cy+dy/d*r};
+  }
+
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">';
+  svg+='<defs>';
+  // Arrowhead markers for each color family
+  [['gld','#f0bf30'],['blu','#60c0ff'],['grn','#7acc90'],['pur','#c060ff'],['org','#e07030'],['red','#ff6060'],['lim','#80d840']].forEach(function(cm){
+    svg+='<marker id="ah-'+cm[0]+'" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="'+cm[1]+'"/></marker>';
+  });
+  svg+='</defs>';
+
+  // Draw arrows first (behind avatars)
+  var placedLabels=[];
+  Object.keys(pairMap).forEach(function(key){
+    var pm=pairMap[key];
+    var fr=pm.fr,to=pm.to;
+    var fp=pos[fr],tp=pos[to];
+    var hasRev=!!(pairMap[to+'-'+fr]);
+
+    var dx=tp.x-fp.x,dy=tp.y-fp.y;
+    var d=Math.sqrt(dx*dx+dy*dy);
+    var px=-dy/d,py=dx/d; // perpendicular (left)
+
+    // Curve offset: bend apart when bidirectional arrows exist
+    var offset=hasRev?55:0;
+    var mx=(fp.x+tp.x)/2+px*offset;
+    var my=(fp.y+tp.y)/2+py*offset;
+
+    // Arrow endpoints at avatar edge (directed toward/from control point)
+    var start=edgePt(fp.x,fp.y,mx,my,R+4);
+    var end=edgePt(tp.x,tp.y,mx,my,R+14);
+
+    var totalAmt=pm.flows.reduce(function(s,f){return s+f.amt;},0);
+    var gameList=pm.flows.map(function(f){return f.game;});
+    var gameStr=gameList.join(' + ');
+    if(gameStr.length>20)gameStr=gameList.map(function(g){return g.replace(' Play','').replace(' Clock','');}).join('+');
+
+    var color=pm.flows[0].color;
+    var mId=color==='#60c0ff'?'blu':color==='#7acc90'?'grn':color==='#c060ff'?'pur':color==='#e07030'?'org':color==='#ff6060'?'red':color==='#80d840'?'lim':'gld';
+
+    // Quadratic bezier path
+    var path='M'+start.x.toFixed(1)+','+start.y.toFixed(1)+' Q'+mx.toFixed(1)+','+my.toFixed(1)+' '+end.x.toFixed(1)+','+end.y.toFixed(1);
+    svg+='<path d="'+path+'" fill="none" stroke="'+color+'" stroke-width="3" stroke-opacity="0.88" marker-end="url(#ah-'+mId+')" />';
+
+    // Label at bezier midpoint (t=0.5): 0.25*P0 + 0.5*Ctrl + 0.25*P2
+    var lx=0.25*start.x+0.5*mx+0.25*end.x;
+    var ly=0.25*start.y+0.5*my+0.25*end.y;
+    // Offset label perpendicular (further from path center)
+    var lo=offset>0?14:16;
+    var lfx=lx+px*lo, lfy=ly+py*lo;
+
+    var amtStr='$'+amt$(totalAmt);
+    var bgW=Math.max(amtStr.length*9,gameStr.length*6.2)+18;
+    var bgH=36;
+
+    // Crossing arrows can land labels on top of each other — slide this one
+    // along the perpendicular until it clears every label already placed.
+    for(var att=0;att<14;att++){
+      var clash=placedLabels.some(function(q){
+        return Math.abs(q.x-lfx)<(q.w+bgW)/2+5&&Math.abs(q.y-lfy)<(q.h+bgH)/2+5;
+      });
+      if(!clash)break;
+      var dir=att%2===0?1:-1,step=(Math.floor(att/2)+1)*(bgH*0.62);
+      lfx=lx+px*lo+px*step*dir;lfy=ly+py*lo+py*step*dir;
+    }
+    placedLabels.push({x:lfx,y:lfy,w:bgW,h:bgH});
+    svg+='<rect x="'+(lfx-bgW/2).toFixed(1)+'" y="'+(lfy-bgH/2).toFixed(1)+'" width="'+bgW.toFixed(1)+'" height="'+bgH+'" rx="6" fill="rgba(0,10,4,0.93)" stroke="'+color+'" stroke-width="1" stroke-opacity="0.55"/>';
+    svg+='<text x="'+lfx.toFixed(1)+'" y="'+(lfy-4).toFixed(1)+'" text-anchor="middle" font-family="Courier New,monospace" font-size="14" font-weight="700" fill="'+color+'">'+amtStr+'</text>';
+    svg+='<text x="'+lfx.toFixed(1)+'" y="'+(lfy+11).toFixed(1)+'" text-anchor="middle" font-family="Courier New,monospace" font-size="9" fill="rgba(160,200,160,0.7)">'+gameStr+'</text>';
+  });
+
+  // Draw avatars on top of arrows
+  var avatarFills=['#0a2216','#0e1e0a','#0a1c1c','#1a1404'];
+  var ov=overall();
+  a.forEach(function(i,idx){
+    var p=pos[i];
+    var name=pn(i);
+    var initials=name.replace(/[^a-zA-Z ]/g,'').split(/\s+/).filter(Boolean).map(function(w){return w[0].toUpperCase();}).join('').slice(0,2)||('P'+(i+1));
+    var bal=ov[i]||0;
+    var balColor=bal>0?'#30f858':bal<0?'#ff5a5a':'#4a7050';
+
+    // Shadow ring
+    svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(R+6)+'" fill="rgba(0,0,0,0.4)"/>';
+    // Avatar circle
+    svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+R+'" fill="'+avatarFills[idx%4]+'" stroke="#c9991e" stroke-width="2.5"/>';
+    // Initials
+    svg+='<text x="'+p.x+'" y="'+p.y+'" text-anchor="middle" dominant-baseline="central" font-family="Courier New,monospace" font-size="20" font-weight="800" fill="#f0bf30">'+initials+'</text>';
+    // Name below avatar
+    var ny=p.y+R+20;
+    svg+='<text x="'+p.x+'" y="'+ny+'" text-anchor="middle" font-family="Courier New,monospace" font-size="12" font-weight="700" fill="#c9991e">'+name+'</text>';
+    // Net balance
+    svg+='<text x="'+p.x+'" y="'+(ny+17)+'" text-anchor="middle" font-family="Courier New,monospace" font-size="12" font-weight="700" fill="'+balColor+'">'+fm(bal)+'</text>';
+  });
+
+  svg+='</svg>';
+
+  // Legend
+  var legendGames=[];
+  flows.forEach(function(f){if(!legendGames.some(function(l){return l.game===f.game;}))legendGames.push({game:f.game,color:f.color});});
+  var legend='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #1a4028">';
+  legendGames.forEach(function(l){legend+='<div style="display:flex;align-items:center;gap:4px;font-size:10px;color:'+l.color+'"><span style="display:inline-block;width:18px;height:3px;background:'+l.color+';border-radius:2px"></span>'+l.game+'</div>';});
+  legend+='</div>';
+
+  return svg+legend;
+}
+
+function rFlow(){
+  var a=ais();
+  var h='<div id="ntf" class="ntf'+(nM?' on':'')+'">'+nM+'</div>';
+  if(!a.length)return h+'<div class="card"><p style="color:#4a7050">Add players in Setup to see money flow.</p></div>';
+  var ov=overall();
+  var hasAny=a.some(function(i){return Math.abs(ov[i])>0.4;});
+  if(!hasAny)return h+'<div class="card"><p style="color:#4a7050">No bets settled yet. Enter scores and enable bets in Setup.</p></div>';
+
+  // Visual SVG diagram first
+  var visual=buildFlowVisual(a);
+  if(visual){
+    h+='<div class="card" style="margin-bottom:12px">';
+    h+='<div class="ct" style="margin-bottom:14px">Gross Money Flow</div>';
+    h+=visual;
+    h+='</div>';
+  }
+
+  h+='<div style="font-size:10px;color:#4a7050;margin-bottom:14px;padding:8px 12px;background:rgba(201,153,30,.05);border:1px solid rgba(201,153,30,.12);border-radius:5px">💸 Each arrow = one bet settled independently (gross). Final Settlements below net everything together into minimum payments.</div>';
+
+  function flowArrow(fr,to,amt,color){
+    color=color||'#f0bf30';
+    var h2='<div style="display:flex;align-items:stretch;margin-bottom:8px;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.06)">';
+    h2+='<div style="flex:1;background:rgba(255,90,90,.08);padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center">';
+    h2+='<div style="font-size:12px;font-weight:700;color:#ff9090">'+pn(fr)+'</div>';
+    h2+='<div style="font-size:9px;color:#4a7050;margin-top:2px">pays</div></div>';
+    h2+='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:76px;background:rgba(0,18,8,.6);border-left:1px solid rgba(255,255,255,.06);border-right:1px solid rgba(255,255,255,.06);padding:6px 4px">';
+    h2+='<div style="font-size:17px;font-weight:700;color:'+color+';line-height:1.1">$'+amt$(amt)+'</div>';
+    h2+='<div style="font-size:18px;color:'+color+';line-height:1">→</div></div>';
+    h2+='<div style="flex:1;background:rgba(48,248,88,.06);padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center">';
+    h2+='<div style="font-size:12px;font-weight:700;color:#30f858">'+pn(to)+'</div>';
+    h2+='<div style="font-size:9px;color:#4a7050;margin-top:2px">receives</div></div>';
+    h2+='</div>';
+    return h2;
+  }
+
+  var net=NET();
+  var games=[
+    {name:'Nassau',result:nassauCalc(),detail:function(){
+      var d='';
+      nassauMus().forEach(function(mu){
+        if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
+        var parts=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
+          var res=nassauHoles(mu.p1,mu.p2,sg[0],sg[1]);if(!res.complete)return sg[2]+':?';
+          var w=res.w1>res.w2?pn(mu.p1):res.w2>res.w1?pn(mu.p2):null;
+          return sg[2]+': '+(w?'<span style="color:#30f858">'+w+'</span> '+Math.max(res.w1,res.w2)+'-'+Math.min(res.w1,res.w2):'<span style="color:#4a7050">Halved</span>');
+        }).join(' &nbsp;·&nbsp; ');
+        d+='<div style="font-size:9px;color:#7acc90;margin-bottom:6px;padding:5px 8px;background:rgba(0,40,16,.4);border-radius:4px">'+pn(mu.p1)+' v '+pn(mu.p2)+' &nbsp;|&nbsp; '+parts+'</div>';
+      });
+      nassauTmus().forEach(function(mu){
+        if(!mu.t1||!mu.t2||mu.t1.concat(mu.t2).some(function(p){return!P[p]||!P[p].on;}))return;
+        var t1n=pn(mu.t1[0])+'/'+pn(mu.t1[1]),t2n=pn(mu.t2[0])+'/'+pn(mu.t2[1]);
+        var parts=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
+          var res=nassauHolesTeam(mu.t1,mu.t2,sg[0],sg[1]);if(!res.complete)return sg[2]+':?';
+          var w=res.w1>res.w2?t1n:res.w2>res.w1?t2n:null;
+          return sg[2]+': '+(w?'<span style="color:#30f858">'+w+'</span> '+Math.max(res.w1,res.w2)+'-'+Math.min(res.w1,res.w2):'<span style="color:#4a7050">Halved</span>');
+        }).join(' &nbsp;·&nbsp; ');
+        d+='<div style="font-size:9px;color:#7acc90;margin-bottom:6px;padding:5px 8px;background:rgba(0,40,16,.4);border-radius:4px"><span style="color:#c9991e">2v2</span> '+t1n+' v '+t2n+' &nbsp;|&nbsp; '+parts+'</div>';
+      });
+      return d;
+    }},
+    {name:'Match Play',result:matchCalc(),detail:function(){
+      var d='';
+      BT.match.mus.forEach(function(mu){
+        if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
+        var run=0,played=0;C.forEach(function(_,hi){var n1=net[mu.p1][hi],n2=net[mu.p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
+        var rem=18-played,abs=Math.abs(run),ldr=run>0?mu.p1:run<0?mu.p2:null;
+        var st=ldr?(abs>rem&&played>0?pn(ldr)+' wins '+abs+'&amp;'+rem:pn(ldr)+' '+abs+'UP'):'All Square';
+        d+='<div style="font-size:9px;color:#7acc90;margin-bottom:6px;padding:5px 8px;background:rgba(0,40,16,.4);border-radius:4px">'+pn(mu.p1)+' v '+pn(mu.p2)+': <span style="color:#c9991e">'+st+'</span></div>';
+      });
+      return d;
+    }},
+    {name:'Wolf',result:wolfCalc(),detail:null},
+    {name:'6/6/6',result:s666Calc(),detail:function(){
+      if(!BT.s666.segs)return'';
+      var d='';
+      ['H1–6','H7–12','H13–18'].forEach(function(lbl,si){
+        var seg=BT.s666.segs[si],t1=seg.t1,t2=seg.t2,st=s666SegState(seg,si);
+        d+='<div style="font-size:9px;color:#7acc90;margin-bottom:4px;padding:4px 8px;background:rgba(0,40,16,.4);border-radius:4px">'+lbl+': '+pn(t1[0])+'&amp;'+pn(t1[1])+' <span style="color:#c9991e;font-weight:700">'+st.w1+'-'+st.w2+'</span> '+pn(t2[0])+'&amp;'+pn(t2[1])+'</div>';
+      });
+      return d;
+    }},
+    {name:'5-3-1',result:s531Calc(),detail:function(){
+      var pts=s531Pts(),d='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">';
+      a.forEach(function(i){d+='<div style="font-size:9px;padding:4px 8px;background:rgba(0,40,16,.4);border-radius:4px;color:#7acc90">'+pn(i)+' <span style="color:#c9991e;font-weight:700">'+pts[i]+' pts</span></div>';});
+      return d+'</div>';
+    }},
+    {name:'Par 3 Clock',result:p3cCalc(),detail:null},
+    {name:'Dots',result:dotsCalc(),detail:null},
+    {name:'Junk',result:junkCalc(),detail:null},
+  ];
+
+  var anyGame=false;
+  games.forEach(function(game){
+    if(!game.result)return;
+    var txns=settleDebts(game.result,a);
+    if(!txns.length)return;
+    anyGame=true;
+    h+='<div class="card" style="margin-bottom:10px">';
+    h+='<div class="ct" style="margin-bottom:10px">'+game.name+'</div>';
+    if(game.detail){var det=game.detail();if(det)h+=det;}
+    txns.forEach(function(t){h+=flowArrow(t.fr,t.to,t.amt,'#f0bf30');});
+    h+='</div>';
+  });
+
+  // Fees flow
+  var ft=feesTotal();
+  var feeTxns=settleDebts(ft,a);
+  if(feeTxns.length){
+    anyGame=true;
+    h+='<div class="card" style="margin-bottom:10px;border-color:rgba(100,160,120,.3)">';
+    h+='<div class="ct" style="margin-bottom:10px">Round Fees</div>';
+    var excl=RF.feeExclude||[];
+    if(excl.length){h+='<div style="font-size:9px;color:#4a7050;margin-bottom:8px">Gifted (pays nothing): '+excl.map(pn).join(', ')+'</div>';}
+    feeTxns.forEach(function(t){h+=flowArrow(t.fr,t.to,t.amt,'#7acc90');});
+    h+='</div>';
+  }
+
+  if(!anyGame){h+='<div class="card"><p style="color:#4a7050">All bets are square — no money changes hands.</p></div>';return h;}
+
+  // Net final settlements
+  var allTxns=settleDebts(ov,a);
+  h+='<div class="card" style="border-color:rgba(201,153,30,.5)">';
+  h+='<div class="ct" style="margin-bottom:8px">Net — Final Settlements</div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin-bottom:12px">All bets and fees netted together. These are the minimum actual payments.</div>';
+  if(allTxns.length){
+    allTxns.forEach(function(t){
+      var h2='<div style="display:flex;align-items:stretch;margin-bottom:10px;border-radius:7px;overflow:hidden;border:1px solid rgba(240,191,48,.2)">';
+      h2+='<div style="flex:1;background:rgba(255,90,90,.1);padding:12px 14px;text-align:center;display:flex;flex-direction:column;justify-content:center">';
+      h2+='<div style="font-size:14px;font-weight:700;color:#ff9090">'+pn(t.fr)+'</div>';
+      h2+='<div style="font-size:9px;color:#4a7050;margin-top:3px">pays</div></div>';
+      h2+='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:88px;background:rgba(0,18,8,.7);border-left:1px solid rgba(240,191,48,.2);border-right:1px solid rgba(240,191,48,.2);padding:8px 4px">';
+      h2+='<div style="font-size:22px;font-weight:700;color:#f0bf30;line-height:1.1">$'+amt$(t.amt)+'</div>';
+      h2+='<div style="font-size:20px;color:#f0bf30;line-height:1">→</div></div>';
+      h2+='<div style="flex:1;background:rgba(48,248,88,.08);padding:12px 14px;text-align:center;display:flex;flex-direction:column;justify-content:center">';
+      h2+='<div style="font-size:14px;font-weight:700;color:#30f858">'+pn(t.to)+'</div>';
+      h2+='<div style="font-size:9px;color:#4a7050;margin-top:3px">receives</div></div>';
+      h2+='</div>';
+      h+=h2;
+    });
+  }else{h+='<div style="color:#4a7050;font-size:12px;text-align:center;padding:12px">✓ All square — nothing to settle.</div>';}
+  h+='</div>';
+  return h;
+}
+
+// ── Course Search — direct API call (or optional Cloudflare Worker proxy) ─────
+async function apiFetch(proxyPath,directSuffix){
+  if(PROXY_URL){
+    var r=await fetch(PROXY_URL+proxyPath);
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    return r.json();
+  }
+  var url=API_BASE+(directSuffix||proxyPath);
+  // Try Bearer first (OAuth2 style)
+  var r=await fetch(url,{headers:{'Authorization':'Bearer '+API_KEY,'Accept':'application/json'}});
+  // If rejected, retry with x-api-key header (some API versions require this)
+  if(r.status===401||r.status===403){
+    r=await fetch(url,{headers:{'x-api-key':API_KEY,'Accept':'application/json'}});
+  }
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+// Normalise a raw hole object to {n, par, hcp}; idx is 0-based array position fallback
+function normalizeHole(h,idx){
+  return{
+    n:+(h.hole_number||h.Hole||h.hole||h.number||h.holeNumber||(idx+1)),
+    par:+(h.Par||h.par||0),
+    hcp:+(h.Handicap||h.handicap||h.stroke_index||h.strokeIndex||0)
+  };
+}
+
+// Extract all tee sets from any golfcourseapi.com response shape
+function extractTees(data){
+  if(Array.isArray(data))return[{name:'Default',holes:data}];
+  if(data.holes&&data.holes.length)return[{name:'Default',holes:data.holes}];
+  if(data.scorecard&&data.scorecard.length)return[{name:'Default',holes:data.scorecard}];
+  var c=data.course||data;
+  if(c.tees){
+    var sets=[];
+    ['male','female'].forEach(function(gender){
+      var grp=c.tees[gender];if(!Array.isArray(grp))return;
+      grp.forEach(function(t){
+        if(!t.holes||!t.holes.length)return;
+        var nm=(t.tee_name||t.name||'Tee')+(gender==='female'?' ♀':'');
+        sets.push({name:nm,holes:t.holes,rating:t.course_rating,slope:t.slope_rating});
+      });
+    });
+    if(sets.length)return sets;
+  }
+  var flat=c.holes||c.scorecard;
+  if(flat&&flat.length)return[{name:'Default',holes:flat}];
+  return[];
+}
+
+function csSearch(q){
+  clearTimeout(csTimer);
+  var drop=document.getElementById('cs-drop');
+  if(!q||q.length<2){if(drop)drop.style.display='none';return;}
+  csTimer=setTimeout(async function(){
+    var drop=document.getElementById('cs-drop');if(!drop)return;
+    try{
+      drop.innerHTML='<div style="font-size:10px;color:#4a7050;padding:8px 11px">Searching...</div>';
+      drop.style.display='block';
+      var data=await apiFetch('/search?q='+encodeURIComponent(q),'/search?search_query='+encodeURIComponent(q));
+      var courses=Array.isArray(data)?data:(data.courses||data.data||[]);
+      if(!courses.length){drop.innerHTML='<div style="font-size:10px;color:#4a7050;padding:8px 11px">No courses found.</div>';return;}
+      // Cache full course objects so pickCourse can use tee data without a second API call
+      courses.forEach(function(c){var id=c.id||c.course_id||c.courseId||'';if(id)courseCache[id]=c;});
+      drop.innerHTML=courses.slice(0,12).map(function(c){
+        var id=c.id||c.course_id||c.courseId||'';
+        var rawName=c.club_name||c.courseName||c.name||'Unknown';
+        var safeAttr=rawName.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        var loc=c.location||{};
+        var city=c.city||loc.city||'',state=c.state||loc.state||'';
+        var locStr=[city,state].filter(Boolean).join(', ');
+        var holes=c.number_of_holes||c.numberOfHoles||0;
+        return'<div class="cri" onmousedown="pickCourse(\''+id+'\',\''+safeAttr+'\')">'
+          +'<span style="color:#f0bf30">'+rawName+'</span>'
+          +(locStr?'<span style="font-size:10px;color:#4a7050;margin-left:8px">'+locStr+'</span>':'')
+          +(holes?'<span style="font-size:9px;color:#3a6040;margin-left:6px">'+holes+' holes</span>':'')
+          +'</div>';
+      }).join('');
+      drop.style.display='block';
+    }catch(e){
+      var msg=e.message||'';
+      var hint=(msg.indexOf('Failed to fetch')!==-1||msg.indexOf('NetworkError')!==-1)
+        ?'CORS blocked — set PROXY_URL in the code to your Cloudflare Worker URL'
+        :'Search error: '+msg;
+      drop.innerHTML='<div style="font-size:10px;color:#ff8080;padding:8px 11px">'+hint+'</div>';
+      drop.style.display='block';
+    }
+  },350);
+}
+
+async function pickCourse(id,rawName){
+  var name=rawName.replace(/\\'/g,"'");
+  cN=name;lastCourseId=id;courseTeeSets=[];courseTeeIdx=0;
+  var inp=document.getElementById('cs-inp');if(inp)inp.value=name;
+  var drop=document.getElementById('cs-drop');if(drop)drop.style.display='none';
+  if(!id){render();return;}
+  var statusEl=document.getElementById('cs-status');
+  if(statusEl){statusEl.textContent='Loading scorecard...';statusEl.style.color='#4a7050';}
+  try{
+    var data=courseCache[id]||await apiFetch('/course/'+encodeURIComponent(id),'/courses/'+encodeURIComponent(id));
+    var sets=extractTees(data);
+    if(!sets.length)throw new Error('No scorecard data in response');
+    courseTeeSets=sets;
+    // Auto-pick: first male tee whose name matches common middle-tee keywords, else middle index
+    var maleOnly=sets.filter(function(t){return t.name.indexOf('♀')===-1;});
+    var src=maleOnly.length?maleOnly:sets;
+    var prefer=['white','middle','medal','blue','regular','men'];
+    var best=src[Math.floor((src.length-1)/2)];
+    src.forEach(function(t){if(prefer.some(function(k){return(t.name||'').toLowerCase().indexOf(k)!==-1;}))best=t;});
+    courseTeeIdx=sets.indexOf(best);
+    applyTee(courseTeeIdx);
+  }catch(e){
+    if(statusEl){statusEl.textContent='Could not load scorecard: '+e.message;statusEl.style.color='#ff8080';}
+    render();
+  }
+}
+
+function hideCourseDrop(){setTimeout(function(){var d=document.getElementById('cs-drop');if(d)d.style.display='none';},150);}
+
+function applyTee(idx){
+  courseTeeIdx=idx;
+  var tee=courseTeeSets[idx];if(!tee||!tee.holes)return;
+  var loaded=0;
+  tee.holes.forEach(function(raw,idx){
+    var h=normalizeHole(raw,idx);
+    if(h.n>=1&&h.n<=18&&h.par>=3&&h.par<=6){
+      C[h.n-1].par=h.par;
+      if(h.hcp>=1&&h.hcp<=18)C[h.n-1].hcp=h.hcp;
+      loaded++;
+    }
+  });
+  var statusEl=document.getElementById('cs-status');
+  var teeName=tee.name+(tee.rating?' ('+tee.rating+(tee.slope?'/'+tee.slope:'')+')'  :'');
+  if(loaded>=18){
+    if(statusEl){statusEl.textContent='✓ '+cN+' · '+teeName+' · all 18 holes';statusEl.style.color='#60e030';}
+    showN('✓ '+teeName+' scorecard loaded');
+  }else if(loaded>0){
+    if(statusEl){statusEl.textContent='⚠ '+teeName+' · '+loaded+'/18 holes — fill rest manually';statusEl.style.color='#f5a030';}
+    showN('Partial: '+teeName+' ('+loaded+'/18)');
+  }else{
+    if(statusEl){statusEl.textContent='⚠ No hole data for '+teeName+' — enter pars manually';statusEl.style.color='#f5a030';}
+  }
+  render();
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+function ensureProfileInRoster(){
+  if(!profile||profile.name==='Demo')return;
+  var existing=sG.find(function(g){return g.name===profile.name;});
+  if(!existing){sG.push({name:profile.name,hcp:profile.hcp||10});svG();}
+  else if(profile.hcp!=null)existing.hcp=profile.hcp;
+  // Auto-select profile user as P1 if not already set
+  if(!P[0].name){P[0].name=profile.name;P[0].hcp=profile.hcp||10;}
+}
+function doDemo(){profile={name:'Demo',hcp:10};loggedIn=true;loginErr='';render();}
+function doReset(){if(confirm('Sign out? Your rounds stay saved on this device.'))storage.del('prof').then(function(){storage.del('pin');profile=null;syncPin='';loggedIn=false;loginErr='';render();});}
+
+// ── Cloud Sync ────────────────────────────────────────────────────────────────
+function buildSyncData(){
+  return{profile:profile,sG:sG,rounds:rounds};
+}
+async function cloudSave(name,pin,data){
+  var r=await fetch(PROXY_URL+'/sync/save',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({user:name,pin:pin,data:data})
+  });
+  var j=await r.json();
+  if(!r.ok)throw new Error(j.error||'Save failed ('+r.status+')');
+  return j;
+}
+async function cloudLoad(name,pin){
+  var r=await fetch(PROXY_URL+'/sync/load?user='+encodeURIComponent(name)+'&pin='+encodeURIComponent(pin));
+  var j=await r.json();
+  if(!r.ok)throw new Error(j.error||'Load failed ('+r.status+')');
+  return j; // {data, ts}
+}
+// Silent background sync after every round save — never shows errors to user
+async function cloudSyncBg(){
+  if(!syncPin||!profile||profile.name==='Demo')return;
+  try{await cloudSave(profile.name,syncPin,buildSyncData());}catch(e){}
+}
+
+// ── Login handler ─────────────────────────────────────────────────────────────
+var _loggingIn=false;
+async function doLogin(){
+  if(_loggingIn)return;
+  var nmEl=document.getElementById('cn'),pinEl=document.getElementById('cpin');
+  if(!nmEl||!pinEl)return;
+  var name=nmEl.value.trim(),pin=pinEl.value.trim();
+  if(!name){loginErr='Enter your name.';render();return;}
+  if(!pin||pin.length<4){loginErr='PIN must be at least 4 digits.';render();return;}
+  _loggingIn=true;loginErr='Loading…';render();
+  try{
+    // ── Existing user on new device: load from cloud ────────────────────────
+    var result=await cloudLoad(name,pin);
+    var d=result.data||{};
+    profile=d.profile||{name:name,hcp:10};
+    sG=d.sG||[];
+    rounds=d.rounds||[];
+    syncPin=pin;
+    var saves=[storage.set('prof',JSON.stringify(profile)),storage.set('sGolfers',JSON.stringify(sG)),storage.set('pin',pin)];
+    rounds.forEach(function(r){saves.push(storage.set(r.id,JSON.stringify(r)));});
+    await Promise.all(saves);
+    loggedIn=true;loginErr='';ensureProfileInRoster();TAB='hist';
+    _loggingIn=false;render();
+    showN('Welcome back, '+profile.name+'! '+rounds.length+' round(s) loaded.');
+    // Cloud rounds arrive with whatever results they were saved under — re-price recent ones.
+    try{var mg=await migrateRecentRounds();if(mg)render();}catch(e){}
+  }catch(cloudErr){
+    var msg=cloudErr.message||'';
+    if(msg==='No profile found for this username'){
+      // ── New user: create profile and register in cloud ──────────────────
+      profile={name:name,hcp:10};syncPin=pin;
+      await Promise.all([storage.set('prof',JSON.stringify(profile)),storage.set('pin',pin)]);
+      // push to cloud (best-effort)
+      try{await cloudSave(name,pin,buildSyncData());}catch(e){}
+      loggedIn=true;loginErr='';ensureProfileInRoster();
+      _loggingIn=false;render();
+      showN('Profile created! Sign in with the same name & PIN on any device.');
+    }else if(msg==='Incorrect PIN'||msg.includes('Incorrect PIN')){
+      loginErr='Wrong PIN for "'+name+'". Try again.';
+      _loggingIn=false;render();
+    }else{
+      // ── Network/worker error: fall back to local-only ───────────────────
+      profile={name:name,hcp:10};syncPin=pin;
+      await Promise.all([storage.set('prof',JSON.stringify(profile)),storage.set('pin',pin)]);
+      loggedIn=true;loginErr='';ensureProfileInRoster();
+      _loggingIn=false;render();
+      showN('Signed in (cloud offline — will sync when reconnected).');
+    }
+  }
+}
+
+// ── Login render ──────────────────────────────────────────────────────────────
+function rLogin(){
+  var loading=loginErr==='Loading…';
+  var h='<div style="background:#001208;min-height:100vh;padding:20px 16px">';
+  h+='<div style="text-align:center;padding:36px 0 24px">';
+  h+='<div style="font-size:26px;color:#f0bf30;letter-spacing:3px;font-weight:500">⛳ GOLF BET TRACKER</div>';
+  h+='<div style="font-size:11px;color:#2a5030;letter-spacing:2px;margin-top:6px">TRACK · BET · SETTLE</div></div>';
+  h+='<div class="lc">';
+  h+='<div style="color:#f0bf30;font-weight:700;letter-spacing:2px;font-size:13px;margin-bottom:6px">SIGN IN</div>';
+  h+='<div style="color:#4a7050;font-size:11px;line-height:1.6;margin-bottom:20px">New here? Pick a name and PIN — your profile is created automatically.<br>Returning on a new device? Same name + PIN loads your history.</div>';
+  h+='<div style="margin-bottom:14px"><div class="lbl">Name</div>';
+  h+='<input id="cn" class="bi" placeholder="e.g. Ross" autocomplete="off"'+(loading?' disabled':'')+' onkeydown="if(event.key===\'Enter\')document.getElementById(\'cpin\').focus()"></div>';
+  h+='<div style="margin-bottom:20px"><div class="lbl">PIN <span style="color:#2a5030;font-weight:400">(4+ digits, any number you choose)</span></div>';
+  h+='<input id="cpin" class="bi" type="password" inputmode="numeric" placeholder="••••" autocomplete="off"'+(loading?' disabled':'')+' onkeydown="if(event.key===\'Enter\')doLogin()"></div>';
+  if(loginErr&&!loading)h+='<div class="ferr">⚠ '+loginErr+'</div>';
+  h+='<button class="btn gold" style="width:100%;padding:14px;font-size:14px;margin-bottom:10px;letter-spacing:1px" onclick="doLogin()">'+(loading?'Signing in…':'Sign In')+'</button>';
+  h+='<button class="btn" style="width:100%;padding:9px;font-size:11px;color:#4a7050;border-color:#1a4028" onclick="doDemo()">⚡ Demo Mode</button>';
+  h+='</div></div>';
+  return h;
+}
+
+// ── Setup render ──────────────────────────────────────────────────────────────
+function rSetup(){
+  var a=ais(),mh=minH();
+  var h='<div id="ntf" class="ntf'+(nM?' on':'')+'">'+nM+'</div>';
+  // Course search
+  h+='<div class="card"><div class="ct">Course</div>';
+  h+='<div id="cs-wrap"><div class="lbl">Search Course Name</div>';
+  h+='<input id="cs-inp" value="'+cN.replace(/"/g,'&quot;')+'" style="width:100%;margin-bottom:2px" placeholder="Type a course name to search..." autocomplete="off" oninput="cN=this.value;csSearch(this.value)" onblur="hideCourseDrop()">';
+  h+='<div id="cs-drop"></div></div>';
+  if(courseTeeSets.length>1){
+    h+='<div style="margin-top:9px"><div class="lbl">Tee Selection</div>';
+    h+='<select style="width:100%" onchange="applyTee(+this.value)">';
+    courseTeeSets.forEach(function(t,ti){
+      var label=t.name+(t.rating?' · '+t.rating+(t.slope?'/'+t.slope:''):'');
+      h+='<option value="'+ti+'"'+(ti===courseTeeIdx?' selected':'')+'>'+label+'</option>';
+    });
+    h+='</select></div>';
+  }
+  h+='<div id="cs-status" style="font-size:10px;margin-top:6px;min-height:14px;color:#4a7050">'+(cN?'Course: '+cN:'')+'</div>';
+  h+='</div>';
+
+  // Players
+  h+='<div class="card"><div class="ct">Players</div>';
+  h+='<div class="row" style="margin-bottom:14px;gap:6px"><span style="color:#7acc90;font-size:12px;padding-bottom:7px">Players in group:</span>';
+  [2,3,4].forEach(function(n){h+='<button class="npb '+(numP===n?'a':'o')+'" onclick="setNumP('+n+')">'+n+'</button>';});
+  h+='</div>';
+  P.slice(0,numP).forEach(function(p,pi){
+    var diff=Math.max(0,p.hcp-mh);
+    var opts=sG.map(function(g){return'<option value="'+g.name+'"'+(p.name===g.name?' selected':'')+'>'+g.name+' ('+g.hcp+')</option>';}).join('');
+    h+='<div style="margin-bottom:14px">';
+    h+='<div class="row" style="margin-bottom:4px">';
+    h+='<div style="flex:1;min-width:140px"><div class="lbl">Player '+(pi+1)+'</div>';
+    h+='<select style="width:100%" onchange="selPly('+pi+',this.value)"><option value="">'+(p.name||'— select —')+'</option>'+opts+'<option value="__new__">+ Add new player</option></select></div>';
+    h+='<div><div class="lbl">HCP</div><input type="number" min="0" max="54" style="width:58px" value="'+p.hcp+'" onchange="P['+pi+'].hcp=+this.value||0;render()"></div>';
+    h+='<div style="font-size:11px;padding-bottom:7px;min-width:72px;color:'+(diff>0?'#7acc90':'#3a6040')+'">'+(diff===0?'● scratch':'● +'+diff+' strks')+'</div>';
+    h+='</div>';
+    if(showNewP[pi])h+='<div class="row"><input id="nnm'+pi+'" placeholder="Full name" style="flex:1"><input id="nnh'+pi+'" type="number" min="0" max="54" placeholder="HCP" style="width:62px"><button class="btn sm gold" onclick="addPly('+pi+')">Save</button></div>';
+    h+='</div>';
+  });
+  h+='<div class="info">Logged-in user is auto-added to the dropdown. Strokes allocated by hole difficulty index.</div></div>';
+
+  // Nassau
+  h+='<div class="card"><div class="ct">Nassau <button class="tog '+(BT.nassau.on?'on':'off')+'" onclick="togBet(\'nassau\')">'+(BT.nassau.on?'ON':'OFF')+'</button></div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Match play with separate bets on the front 9, back 9, and full round. Play it head-to-head, or as 2v2 teams when you have 4 players — both formats can run at once.</div>';
+  if(BT.nassau.on){
+    // Head-to-head section — independently switchable
+    h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
+    h+='<span style="font-size:10px;font-weight:700;color:'+(nassauH2HOn()?'#c9991e':'#4a7050')+';letter-spacing:.5px">Head-to-Head (1v1)</span>';
+    h+='<button class="tog '+(nassauH2HOn()?'on':'off')+'" style="padding:2px 8px;font-size:9px" onclick="togNassauH2H()">'+(nassauH2HOn()?'ON':'OFF')+'</button></div>';
+    if(nassauH2HOn())
+    BT.nassau.mus.forEach(function(mu,mi){
+      var op=a.length?a:[0,1];
+      h+='<div class="mu"><div class="row" style="margin-bottom:8px">';
+      h+='<div><div class="lbl">P1</div><select style="width:108px" onchange="BT.nassau.mus['+mi+'].p1=+this.value;render()">'+op.map(function(i){return'<option value="'+i+'"'+(mu.p1===i?' selected':'')+'>'+pn(i)+'</option>';}).join('')+'</select></div>';
+      h+='<div style="padding-bottom:7px;color:#c9991e;font-weight:700">vs</div>';
+      h+='<div><div class="lbl">P2</div><select style="width:108px" onchange="BT.nassau.mus['+mi+'].p2=+this.value;render()">'+op.map(function(i){return'<option value="'+i+'"'+(mu.p2===i?' selected':'')+'>'+pn(i)+'</option>';}).join('')+'</select></div>';
+      if(BT.nassau.mus.length>1)h+='<div style="padding-bottom:6px"><button class="btn del sm" onclick="delMu(\'nassau\','+mi+')">✕</button></div>';
+      h+='</div><div class="stkbadge">'+nassauStrokes(mu.p1,mu.p2)+'</div>';
+      h+='<div class="row" style="margin-bottom:0">';
+      [['front','Front $'],['back','Back $'],['tot','Overall $']].forEach(function(pair){h+='<div><div class="lbl">'+pair[1]+'</div><input type="number" min="0" style="width:68px" value="'+mu[pair[0]]+'" onchange="BT.nassau.mus['+mi+'].'+pair[0]+'=+this.value"></div>';});
+      h+='</div></div>';
+    });
+    if(nassauH2HOn())h+='<button class="btn sm" style="margin-top:4px" onclick="addMu(\'nassau\')">+ Add Matchup</button>';
+    if(numP===4){
+      h+='<div style="margin-top:12px;padding-top:10px;border-top:1px solid #1a4028">';
+      h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+      h+='<span style="font-size:10px;font-weight:700;color:'+(nassauTeamsOn()?'#c9991e':'#4a7050')+';letter-spacing:.5px">2v2 Best Ball</span>';
+      h+='<button class="tog '+(nassauTeamsOn()?'on':'off')+'" style="padding:2px 8px;font-size:9px" onclick="togNassauTeams()">'+(nassauTeamsOn()?'ON':'OFF')+'</button></div>';
+      if(nassauTeamsOn()){
+      h+='<div style="font-size:10px;color:#4a7050;margin-bottom:8px">Each team\'s score per hole = their lowest net. Match play across front, back, overall.</div>';
+      (BT.nassau.tmus||[]).forEach(function(mu,mi){
+        var op=a.length?a:[0,1,2,3];
+        h+='<div class="mu">';
+        h+='<div class="row" style="margin-bottom:6px;align-items:flex-end">';
+        h+='<div><div class="lbl">Team 1</div>';
+        h+='<select style="width:90px;margin-bottom:4px" onchange="setTmuPlayer('+mi+',1,0,+this.value)">'+op.map(function(i){return'<option value="'+i+'"'+(mu.t1[0]===i?' selected':'')+'>'+pn(i)+'</option>';}).join('')+'</select>';
+        h+='<br><select style="width:90px" onchange="setTmuPlayer('+mi+',1,1,+this.value)">'+op.map(function(i){return'<option value="'+i+'"'+(mu.t1[1]===i?' selected':'')+'>'+pn(i)+'</option>';}).join('')+'</select></div>';
+        h+='<div style="padding-bottom:4px;color:#c9991e;font-weight:700">vs</div>';
+        h+='<div><div class="lbl">Team 2</div>';
+        h+='<select style="width:90px;margin-bottom:4px" onchange="setTmuPlayer('+mi+',2,0,+this.value)">'+op.map(function(i){return'<option value="'+i+'"'+(mu.t2[0]===i?' selected':'')+'>'+pn(i)+'</option>';}).join('')+'</select>';
+        h+='<br><select style="width:90px" onchange="setTmuPlayer('+mi+',2,1,+this.value)">'+op.map(function(i){return'<option value="'+i+'"'+(mu.t2[1]===i?' selected':'')+'>'+pn(i)+'</option>';}).join('')+'</select></div>';
+        if((BT.nassau.tmus||[]).length>0)h+='<div style="padding-bottom:4px"><button class="btn del sm" onclick="delTmu('+mi+')">✕</button></div>';
+        h+='</div>';
+        h+='<div class="row" style="margin-bottom:0">';
+        [['front','Front $'],['back','Back $'],['tot','Overall $']].forEach(function(pair){h+='<div><div class="lbl">'+pair[1]+'</div><input type="number" min="0" style="width:68px" value="'+mu[pair[0]]+'" onchange="BT.nassau.tmus['+mi+'].'+pair[0]+'=+this.value"></div>';});
+        h+='</div></div>';
+      });
+      h+='<button class="btn sm" style="margin-top:4px" onclick="addTmu()">+ Add 2v2 Matchup</button>';
+      }
+      h+='</div>';
+    }
+    if(!nassauH2HOn()&&!nassauTeamsOn())h+='<div class="info" style="margin-top:8px">Both Nassau formats are off — no Nassau money will change hands.</div>';
+  }
+  h+='</div>';
+
+  // Match Play
+  h+='<div class="card"><div class="ct">Match Play <button class="tog '+(BT.match.on?'on':'off')+'" onclick="togBet(\'match\')">'+(BT.match.on?'ON':'OFF')+'</button></div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Hole-by-hole competition — player with lowest net score wins each hole; most holes won takes the match.</div>';
+  if(BT.match.on){
+    BT.match.mus.forEach(function(mu,mi){
+      var op=a.length?a:[0,1];
+      h+='<div class="mu"><div class="row" style="margin-bottom:0">';
+      h+='<div><div class="lbl">P1</div><select style="width:108px" onchange="BT.match.mus['+mi+'].p1=+this.value;render()">'+op.map(function(i){return'<option value="'+i+'"'+(mu.p1===i?' selected':'')+'>'+pn(i)+'</option>';}).join('')+'</select></div>';
+      h+='<div style="padding-bottom:7px;color:#c9991e;font-weight:700">vs</div>';
+      h+='<div><div class="lbl">P2</div><select style="width:108px" onchange="BT.match.mus['+mi+'].p2=+this.value;render()">'+op.map(function(i){return'<option value="'+i+'"'+(mu.p2===i?' selected':'')+'>'+pn(i)+'</option>';}).join('')+'</select></div>';
+      h+='<div><div class="lbl">Stake $</div><input type="number" min="0" style="width:66px" value="'+mu.stake+'" onchange="BT.match.mus['+mi+'].stake=+this.value"></div>';
+      if(BT.match.mus.length>1)h+='<div style="padding-bottom:6px"><button class="btn del sm" onclick="delMu(\'match\','+mi+')">✕</button></div>';
+      h+='</div></div>';
+    });
+    h+='<button class="btn sm" style="margin-top:4px" onclick="addMu(\'match\')">+ Add Matchup</button>';
+  }
+  h+='</div>';
+
+  // Wolf (4-player only)
+  if(numP===4){
+  h+='<div class="card"><div class="ct">Wolf <button class="tog '+(BT.wolf.on?'on':'off')+'" onclick="togBet(\'wolf\')">'+(BT.wolf.on?'ON':'OFF')+'</button></div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">One rotating Wolf per hole chooses to go lone (1v3) or pick a partner after seeing all tee shots.</div>';
+  if(BT.wolf.on)h+='<div class="row"><div><div class="lbl">$ / Point</div><input type="number" min="0" style="width:78px" value="'+BT.wolf.stake+'" onchange="BT.wolf.stake=+this.value"></div></div><div class="info">LONE WOLF = 1v3, win/lose 3×. Pick partner = 2v2 best ball. Manage in Wolf tab.</div>';
+  h+='</div>';
+  }
+
+  // 6/6/6 (4-player only)
+  if(numP===4){
+  h+='<div class="card"><div class="ct">6/6/6 <button class="tog '+(BT.s666.on?'on':'off')+'" onclick="togBet(\'s666\')">'+(BT.s666.on?'ON':'OFF')+'</button></div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">18 holes split into three 6-hole team segments with rotating partners; team with most holes wins each segment.</div>';
+  if(BT.s666.on){
+    h+='<div class="row"><div><div class="lbl">$ / Segment Win</div><input type="number" min="0" style="width:78px" value="'+BT.s666.stake+'" onchange="BT.s666.stake=+this.value"></div></div>';
+    var a2=ais();
+    if(a2.length===4){
+      ensure666Segs();
+      ['H1–6','H7–12','H13–18'].forEach(function(lbl,si){
+        var seg=BT.s666.segs[si],t1=seg.t1,t2=seg.t2;
+        h+='<div class="mu" style="margin-bottom:7px">';
+        h+='<div style="font-size:9px;font-weight:700;color:#c9991e;letter-spacing:1px;margin-bottom:7px">'+lbl+'</div>';
+        h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+        // Team 1 picker — two dropdowns
+        [0,1].forEach(function(slot){
+          h+='<select style="width:96px" onchange="set666Team('+si+','+slot+',+this.value)">';
+          a2.forEach(function(pi){h+='<option value="'+pi+'"'+(t1[slot]===pi?' selected':'')+'>'+pn(pi)+'</option>';});
+          h+='</select>';
+          if(slot===0)h+='<span style="color:#4a7050;font-size:10px">&amp;</span>';
+        });
+        h+='<span style="color:#4a7050;font-size:10px;margin:0 4px">vs</span>';
+        // Team 2 auto-display
+        h+='<span style="color:#88c898;font-size:11px">'+pn(t2[0])+'</span>';
+        h+='<span style="color:#4a7050;font-size:10px">&amp;</span>';
+        h+='<span style="color:#88c898;font-size:11px">'+pn(t2[1])+'</span>';
+        h+='</div></div>';
+      });
+    }
+    h+='<div class="info">Combined net score per hole · low team total wins hole · most holes wins segment.</div>';
+  }
+  h+='</div>';
+  } // end numP===4 (6/6/6)
+
+  // 5-3-1 (3-player only)
+  if(numP===3){
+  h+='<div class="card"><div class="ct">5-3-1 (9 Point) <button class="tog '+(BT.s531.on?'on':'off')+'" onclick="togBet(\'s531\')">'+(BT.s531.on?'ON':'OFF')+'</button></div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Three-player points game — low net earns 5 pts, middle 3, high 1 per hole; point differences settle at the end.</div>';
+  if(BT.s531.on)h+='<div class="row"><div><div class="lbl">$ / Pt Diff</div><input type="number" min="0" style="width:78px" value="'+BT.s531.stake+'" onchange="BT.s531.stake=+this.value"></div></div><div class="seg" style="font-size:10px;line-height:1.8">Low: 5 pts · Mid: 3 pts · High: 1 pt · All tie: 3/3/3 · Tie low: 4/4/1 · Tie high: 5/2/2</div>';
+  h+='</div>';
+  } // end numP===3 (5-3-1)
+
+  // Par 3 Clock
+  h+='<div class="card"><div class="ct">Par 3 Clock <button class="tog '+(BT.p3c.on?'on':'off')+'" onclick="togBet(\'p3c\')">'+(BT.p3c.on?'ON':'OFF')+'</button></div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Closest to the pin on par 3s collects a set amount from every other player; 3-putt means you pay instead.</div>';
+  if(BT.p3c.on)h+='<div class="row">'+[['birdie','Birdie $'],['par','Par $'],['bogey','3-Putt Bogey $']].map(function(p){return'<div><div class="lbl">'+p[1]+'</div><input type="number" min="0" style="width:78px" value="'+BT.p3c[p[0]]+'" onchange="BT.p3c.'+p[0]+'=+this.value"></div>';}).join('')+'</div><div class="info">Closest to pin on the green = on the clock. Amounts are paid to/from EACH other player (e.g. 3-putt bogey = you owe every other player the bogey amount). Track in Dots/Junk tab.</div>';
+  h+='</div>';
+
+  // Dots
+  h+='<div class="card"><div class="ct">Dots <button class="tog '+(BT.dots.on?'on':'off')+'" onclick="togBet(\'dots\')">'+(BT.dots.on?'ON':'OFF')+'</button>'+(BT.dots.on?'<button class="btn sm" onclick="uiState.dotsOpen=!uiState.dotsOpen;render()" style="padding:3px 8px;font-size:10px;margin-left:6px">'+(uiState.dotsOpen?'▲ hide':'▼ settings')+'</button>':'')+'</div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Earn a dot for hitting a fairway (par 4/5) or a birdie-or-better GIR. Only the player(s) with the most dots get paid — everyone else owes the gap between their total and the leader\'s, split among the leaders.</div>';
+  if(BT.dots.on&&uiState.dotsOpen)h+='<div class="row"><div><div class="lbl">$ per Dot</div><input type="number" min="0" style="width:72px" value="'+dotRate()+'" onchange="BT.dots.val=+this.value"></div></div><div class="info">FWY = hit fairway off tee (par 4/5 only) · GRN = GIR + made birdie putt or better. Every dot counts the same — the gap to the leader is priced at this rate.</div>';
+  h+='</div>';
+
+  // Junk
+  h+='<div class="card"><div class="ct">Junk <button class="tog '+(BT.junk.on?'on':'off')+'" onclick="togBet(\'junk\')">'+(BT.junk.on?'ON':'OFF')+'</button>'+(BT.junk.on?'<button class="btn sm" onclick="uiState.junkOpen=!uiState.junkOpen;render()" style="padding:3px 8px;font-size:10px;margin-left:6px">'+(uiState.junkOpen?'▲ hide':'▼ settings')+'</button>':'')+'</div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Credit for special shots — greenie, sandy, barky, polie, plus auto birdie/eagle/hole-in-one. Only the player(s) with the most junk get paid; everyone else owes the gap between their count and the leader\'s, split among the leaders.</div>';
+  if(BT.junk.on&&uiState.junkOpen){
+    h+='<div class="row"><div><div class="lbl">$ per Junk</div><input type="number" min="0" style="width:72px" value="'+junkRate()+'" onchange="BT.junk.val=+this.value"></div></div>';
+    h+='<div class="info">Every junk item counts the same — the gap to the leader is priced at this rate.<br>Greenie (par 3, closest &amp; par+) · Sandy · Barky · Polie — tracked by hand. Birdie · Eagle · Hole in One — auto-detected from gross scores.</div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+// ── Scores render — single 18-hole table ──────────────────────────────────────
+function rScores(){
+  var a=ais(),ns=NS(),net=NET();
+  var h='<div id="ntf" class="ntf'+(nM?' on':'')+'">'+nM+'</div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin-bottom:10px;padding:7px 10px;background:rgba(201,153,30,.05);border:1px solid rgba(201,153,30,.12);border-radius:4px">💡 Par and HCP cells are editable. Tab moves left to right along a row and wraps to the start of the next; Shift+Tab goes back. Gross score on top, net below.</div>';
+  var NW=96,CW=38,SW=44,RW=52; // name, hole, subtotal, round-total col widths
+  // column order: name | holes 1-9 | F | holes 10-18 | B | Tot
+  var W=NW+18*CW+2*SW+RW;
+  var SEP1='border-left:1px solid #1a4028',SEP2='border-left:2px solid #2a5030';
+  var fPar=C.slice(0,9).reduce(function(s,x){return s+x.par;},0);
+  var bPar=C.slice(9,18).reduce(function(s,x){return s+x.par;},0);
+
+  h+='<div class="card"><div style="overflow-x:auto">';
+  h+='<table style="border-collapse:collapse;table-layout:fixed;width:'+W+'px">';
+  h+='<colgroup><col style="width:'+NW+'px">';
+  for(var ci=0;ci<9;ci++)h+='<col style="width:'+CW+'px">';
+  h+='<col style="width:'+SW+'px">';
+  for(var ci=0;ci<9;ci++)h+='<col style="width:'+CW+'px">';
+  h+='<col style="width:'+SW+'px"><col style="width:'+RW+'px"></colgroup>';
+  h+='<thead>';
+
+  // Hole number row
+  h+='<tr style="height:22px"><td style="text-align:left;padding:0 8px;color:#4a7050;font-size:10px;vertical-align:middle">Hole</td>';
+  C.forEach(function(hx,hi){
+    h+='<td style="color:#c9991e;font-weight:700;text-align:center;font-size:11px;vertical-align:middle'+(hi===9?';'+SEP1:'')+'">'+hx.n+'</td>';
+    if(hi===8)h+='<td style="color:#c9991e;font-weight:700;text-align:center;font-size:11px;vertical-align:middle;'+SEP1+'">F</td>';
+  });
+  h+='<td style="color:#c9991e;font-weight:700;text-align:center;font-size:11px;vertical-align:middle;'+SEP1+'">B</td>';
+  h+='<td style="color:#f0bf30;font-weight:700;text-align:center;font-size:11px;vertical-align:middle;'+SEP2+'">Tot</td></tr>';
+
+  // Par row
+  h+='<tr style="height:30px"><td style="text-align:left;padding:0 8px;color:#c9991e;font-size:10px;font-weight:700;vertical-align:middle">Par</td>';
+  C.forEach(function(hx,hi){
+    h+='<td style="text-align:center;vertical-align:middle;padding:2px 1px'+(hi===9?';'+SEP1:'')+'"><input type="number" min="3" max="6" value="'+hx.par+'" data-nav="sc:0:'+hi+'" onkeydown="gridTab(event,this)" onchange="C['+hi+'].par=+this.value||4;render()" style="width:'+(CW-8)+'px;height:24px;text-align:center;padding:0;border-radius:3px;font:700 11px \'Courier New\';background:#001208;border:1px solid #2a5030;color:#c9991e;display:block;margin:0 auto"></td>';
+    if(hi===8)h+='<td style="color:#c9991e;text-align:center;font-size:11px;font-weight:700;vertical-align:middle;'+SEP1+'">'+fPar+'</td>';
+  });
+  h+='<td style="color:#c9991e;text-align:center;font-size:11px;font-weight:700;vertical-align:middle;'+SEP1+'">'+bPar+'</td>';
+  h+='<td style="color:#f0bf30;text-align:center;font-size:11px;font-weight:700;vertical-align:middle;'+SEP2+'">'+(fPar+bPar)+'</td></tr>';
+
+  // HCP row
+  h+='<tr style="height:28px"><td style="text-align:left;padding:0 8px;color:#7acc90;font-size:10px;font-weight:700;vertical-align:middle">HCP</td>';
+  C.forEach(function(hx,hi){
+    h+='<td style="text-align:center;vertical-align:middle;padding:2px 1px'+(hi===9?';'+SEP1:'')+'"><input type="number" min="1" max="18" value="'+hx.hcp+'" data-nav="sc:1:'+hi+'" onkeydown="gridTab(event,this)" onchange="C['+hi+'].hcp=+this.value||1;render()" style="width:'+(CW-8)+'px;height:22px;text-align:center;padding:0;border-radius:3px;font:600 10px \'Courier New\';background:#001208;border:1px solid #1a3820;color:#7acc90;display:block;margin:0 auto"></td>';
+    if(hi===8)h+='<td style="'+SEP1+'"></td>';
+  });
+  h+='<td style="'+SEP1+'"></td><td style="'+SEP2+'"></td></tr>';
+  h+='</thead><tbody>';
+
+  // Player rows — grid rows 2+ (row 0 = Par, row 1 = HCP)
+  a.forEach(function(pi,navRow){
+    var fNet=net[pi].slice(0,9),bNet=net[pi].slice(9,18);
+    var fGr=GR[pi].slice(0,9).map(function(v){return parseInt(v);}),bGr=GR[pi].slice(9,18).map(function(v){return parseInt(v);});
+    var fNT=fNet.every(function(v){return v!=null;})?fNet.reduce(function(s,b){return s+b;},0):null;
+    var bNT=bNet.every(function(v){return v!=null;})?bNet.reduce(function(s,b){return s+b;},0):null;
+    var fGT=fGr.every(function(v){return!isNaN(v);})?fGr.reduce(function(s,b){return s+b;},0):null;
+    var bGT=bGr.every(function(v){return!isNaN(v);})?bGr.reduce(function(s,b){return s+b;},0):null;
+    var rNT=(fNT!=null&&bNT!=null)?fNT+bNT:null,rGT=(fGT!=null&&bGT!=null)?fGT+bGT:null;
+    var rPar=fPar+bPar;
+    h+='<tr style="border-top:1px solid #0d2a18;height:54px">';
+    h+='<td style="text-align:left;padding:0 6px;color:#c9991e;font-weight:700;white-space:nowrap;font-size:11px;vertical-align:middle">'+pn(pi).slice(0,9)+'<br><span style="font-size:9px;color:#2a5030;font-weight:400">('+P[pi].hcp+')</span></td>';
+    C.forEach(function(hx,hi){
+      var g=GR[pi][hi],nv=net[pi][hi],dot=ns[pi][hi]>0,nc=nv!=null?sC(nv-hx.par):'rgba(245,237,213,.18)';
+      h+='<td style="padding:2px 1px;text-align:center;vertical-align:middle;position:relative'+(hi===9?';'+SEP1:'')+'">';
+      h+='<input type="number" min="1" max="15" class="scinp" data-pi="'+pi+'" data-hi="'+hi+'" data-nav="sc:'+(navRow+2)+':'+hi+'" onkeydown="gridTab(event,this)" oninput="setSI('+pi+','+hi+',this.value)" value="'+g+'" style="width:'+(CW-8)+'px;height:26px;text-align:center;padding:0;border-radius:4px;font:700 13px \'Courier New\';display:block;margin:0 auto;background:'+(nv!=null?nc+'22':'rgba(255,255,255,.04)')+';border:1px solid '+(nv!=null?nc+'aa':'rgba(255,255,255,.12)')+';color:'+(nv!=null?nc:'#3a6040')+';">';
+      h+='<span style="display:block;font-size:9px;line-height:1.5;text-align:center;color:'+(nv!=null?nc:'#1a3820')+'">'+(nv!=null?nv:'·')+'</span>';
+      h+=(dot?'<span style="position:absolute;top:1px;right:2px;font-size:5px;color:#c9991e;line-height:1">●</span>':'');
+      h+='</td>';
+      if(hi===8){
+        var ftc=fNT!=null?sC(fNT-fPar):'#4a7050';
+        h+='<td style="text-align:center;padding:2px 3px;vertical-align:middle;'+SEP1+'" data-tot-pi="'+pi+'" data-tot-nine="0">';
+        h+='<span style="display:block;font-size:12px;color:#88c898;font-weight:600;line-height:1.5">'+(fGT!=null?fGT:'—')+'</span>';
+        h+='<span style="display:block;font-size:11px;font-weight:700;color:'+ftc+';line-height:1.5">'+(fNT!=null?fNT:'—')+'</span></td>';
+      }
+    });
+    var btc=bNT!=null?sC(bNT-bPar):'#4a7050',rtc=rNT!=null?sC(rNT-rPar):'#4a7050';
+    h+='<td style="text-align:center;padding:2px 3px;vertical-align:middle;'+SEP1+'" data-tot-pi="'+pi+'" data-tot-nine="1">';
+    h+='<span style="display:block;font-size:12px;color:#88c898;font-weight:600;line-height:1.5">'+(bGT!=null?bGT:'—')+'</span>';
+    h+='<span style="display:block;font-size:11px;font-weight:700;color:'+btc+';line-height:1.5">'+(bNT!=null?bNT:'—')+'</span></td>';
+    h+='<td style="text-align:center;padding:2px 3px;vertical-align:middle;'+SEP2+'" data-tot-pi="'+pi+'" data-tot-nine="2">';
+    h+='<span style="display:block;font-size:13px;color:#f0bf30;font-weight:700;line-height:1.5">'+(rGT!=null?rGT:'—')+'</span>';
+    h+='<span style="display:block;font-size:11px;font-weight:700;color:'+rtc+';line-height:1.5">'+(rNT!=null?rNT:'—')+'</span></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+
+  // Live match state — label sits outside the update target so it survives innerHTML refresh
+  if(BT.nassau.on&&(nassauH2HOn()||nassauTeamsOn())){
+    h+='<div style="padding:8px 4px 2px;border-top:1px solid #1a4028;margin-top:6px">';
+    h+='<div style="font-size:9px;font-weight:700;color:#c9991e;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">Nassau</div>';
+    h+='<div id="nassau-live">'+buildNassauLiveHtml()+'</div></div>';
+  }
+  if(BT.s666.on&&a.length===4){
+    h+='<div style="padding:8px 4px 2px;border-top:1px solid #1a4028;margin-top:6px">';
+    h+='<div style="font-size:9px;font-weight:700;color:#c9991e;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">6/6/6 — Best Ball Net</div>';
+    h+='<div id="s666-live">'+build666LiveHtml()+'</div></div>';
+  }
+  h+='</div>';
+
+  h+='<div style="font-size:10px;color:#3a6040;display:flex;gap:10px;flex-wrap:wrap;padding:3px 0">';
+  [[-2,'#f5a030','Eagle'],[-1,'#ff3030','Birdie'],[0,'#60e030','Par'],[1,'#30aaff','Bogey'],[2,'#c060ff','Dbl+']].forEach(function(x){h+='<span style="color:'+x[1]+'">■ '+x[2]+'</span>';});
+  h+='<span style="color:#c9991e">● hcp stroke</span><span style="color:#4a7050"> &nbsp;gross / net</span></div>';
+  h+='<div style="margin-top:8px"><button class="btn sm" onclick="resetCourse()" style="color:#4a7050">↺ Reset Pars/HCP to defaults</button></div>';
+  return h;
+}
+function resetCourse(){C=DEF.map(function(h){return Object.assign({},h);});render();}
+
+// ── Extras render ─────────────────────────────────────────────────────────────
+function rExtras(){
+  var a=ais();
+  var h='<div id="ntf" class="ntf'+(nM?' on':'')+'">'+nM+'</div>';
+  if(!BT.dots.on&&!BT.junk.on&&!BT.p3c.on)return h+'<div class="card"><p style="color:#4a7050">Enable Dots, Junk, or Par 3 Clock in Setup first.</p></div>';
+  if(BT.dots.on){
+    h+='<div class="card"><div class="ct">Dots — Fairway &amp; Green</div>';
+    h+='<div style="font-size:10px;color:#4a7050;margin-bottom:10px">FWY = fairway hit off tee (par 4/5 only) · GRN = GIR + birdie putt made or better</div>';
+    h+='<div style="overflow-x:auto"><table class="djtbl"><thead><tr><th style="text-align:left">H</th><th>Par</th>';
+    a.forEach(function(i){h+='<th colspan="2">'+pn(i).slice(0,7)+'</th>';});
+    h+='</tr><tr><th></th><th></th>';a.forEach(function(){h+='<th>FWY</th><th>GRN</th>';});
+    h+='</tr></thead><tbody>';
+    C.forEach(function(hole,hi){
+      h+='<tr style="'+(hi%2?'':'background:rgba(255,255,255,.02)')+'"><td style="text-align:left;padding:4px 8px;font-weight:700">'+hole.n+'</td><td style="color:#4a7050">'+hole.par+'</td>';
+      a.forEach(function(pi,ai){
+        h+='<td><input type="checkbox" data-nav="dots:'+hi+':'+(ai*2)+'" onkeydown="gridTab(event,this)"'+(DT[hi][pi].f?' checked':'')+(hole.par<4?' disabled style="opacity:.2"':'')+' onchange="setDot('+hi+','+pi+',\'f\',this.checked)"></td>';
+        h+='<td><input type="checkbox" data-nav="dots:'+hi+':'+(ai*2+1)+'" onkeydown="gridTab(event,this)"'+(DT[hi][pi].g?' checked':'')+' onchange="setDot('+hi+','+pi+',\'g\',this.checked)"></td>';
+      });
+      h+='</tr>';
+    });
+    h+='</tbody></table></div></div>';
+  }
+  if(BT.junk.on){
+    var jT=[{k:'gr',l:'GRN',p3:true},{k:'sa',l:'SND'},{k:'ba',l:'BRK'},{k:'po',l:'POL'}];
+    h+='<div class="card"><div class="ct">Junk</div>';
+    h+='<div style="font-size:10px;color:#4a7050;margin-bottom:10px">GRN=Greenie(par3) · SND=Sandy · BRK=Barky · POL=Polie · BRD/EGL/HIO auto-detected from scores</div>';
+    h+='<div style="overflow-x:auto"><table class="djtbl"><thead><tr><th style="text-align:left">H</th><th>Par</th>';
+    a.forEach(function(i){h+='<th colspan="7">'+pn(i).slice(0,7)+'</th>';});
+    h+='</tr><tr><th></th><th></th>';a.forEach(function(){jT.forEach(function(t){h+='<th>'+t.l+'</th>';});h+='<th style="color:#c9991e">BRD</th><th style="color:#c9991e">EGL</th><th style="color:#c9991e">HIO</th>';});
+    h+='</tr></thead><tbody>';
+    C.forEach(function(hole,hi){
+      h+='<tr style="'+(hi%2?'':'background:rgba(255,255,255,.02)')+'"><td style="text-align:left;padding:4px 8px;font-weight:700">'+hole.n+'</td><td style="color:#4a7050">'+hole.par+'</td>';
+      a.forEach(function(pi,ai){
+        jT.forEach(function(t,ti){var dis=t.p3&&hole.par!==3;h+='<td><input type="checkbox" data-nav="junk:'+hi+':'+(ai*7+ti)+'" onkeydown="gridTab(event,this)"'+(JK[hi][pi][t.k]?' checked':'')+(dis?' disabled style="opacity:.15"':'')+' onchange="setJK('+hi+','+pi+',\''+t.k+'\',this.checked)"></td>';});
+        var g=parseInt(GR[pi][hi]),isBrd=!isNaN(g)&&g===hole.par-1,isEgl=!isNaN(g)&&g===hole.par-2,isHio=!isNaN(g)&&g===1;
+        h+='<td><input type="checkbox"'+(isBrd?' checked':'')+' disabled style="opacity:'+(isNaN(g)?'.15':'.9')+'"></td>';
+        h+='<td><input type="checkbox"'+(isEgl?' checked':'')+' disabled style="opacity:'+(isNaN(g)?'.15':'.9')+'"></td>';
+        h+='<td><input type="checkbox"'+(isHio?' checked':'')+' disabled style="opacity:'+(isNaN(g)?'.15':'.9')+'"></td>';
+      });
+      h+='</tr>';
+    });
+    h+='</tbody></table></div></div>';
+  }
+  if(BT.p3c.on){
+    h+='<div class="card"><div class="ct">Par 3 Clock</div>';
+    h+='<div style="font-size:10px;color:#4a7050;margin-bottom:12px">Select who is closest to the pin (ball on the green) = on the clock.</div>';
+    C.forEach(function(hole,hi){
+      if(hole.par!==3)return;var pc=P3C[hi],g=pc.cp!=null?parseInt(GR[pc.cp][hi]):NaN,diff=!isNaN(g)?g-hole.par:null;
+      var rs=diff!=null?(diff<=-1?'<span style="color:#ff3030">birdie+ ✓</span>':diff===0?'<span style="color:#60e030">par ✓</span>':'<span style="color:#30aaff">over par</span>'):'';
+      h+='<div class="mu"><div style="font-weight:700;color:#c9991e;margin-bottom:8px">Hole '+hole.n+'</div><div class="row" style="margin-bottom:0"><div><div class="lbl">On the Clock</div><select style="width:140px" data-nav="p3c:'+hi+':0" onkeydown="gridTab(event,this)" onchange="setP3Cp('+hi+',+this.value)"><option value="-1"'+(pc.cp==null?' selected':'')+'">— nobody —</option>';
+      a.forEach(function(i){h+='<option value="'+i+'"'+(pc.cp===i?' selected':'')+'>'+pn(i)+'</option>';});
+      h+='</select></div>';
+      if(pc.cp!=null){h+='<div style="padding-bottom:7px"><label style="font-size:11px;color:#7acc90;cursor:pointer"><input type="checkbox" data-nav="p3c:'+hi+':1" onkeydown="gridTab(event,this)"'+(pc.tp?' checked':'')+' onchange="setP3Ctp('+hi+',this.checked)" style="margin-right:5px">3-putt bogey?</label></div>';if(!isNaN(g))h+='<div style="font-size:11px;color:#c9991e;padding-bottom:6px">Gross: '+g+' ('+rs+')</div>';}
+      h+='</div></div>';
+    });
+    h+='</div>';
+  }
+  return h;
+}
+
+// ── Wolf render ───────────────────────────────────────────────────────────────
+function rWolf(){
+  var a=ais();var h='<div id="ntf" class="ntf'+(nM?' on':'')+'">'+nM+'</div>';
+  if(a.length!==4)return h+'<div class="card"><p style="color:#4a7050">Wolf requires exactly 4 active players.</p></div>';
+  h+='<div class="card"><div class="ct">Wolf · $'+BT.wolf.stake+'/pt</div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin-bottom:10px">Wolf rotates each hole. LONE = 1v3, wins/loses 3×. Pick partner = 2v2 best ball net.</div>';
+  h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:11px"><thead><tr style="border-bottom:1px solid #1a4028">';
+  h+='<th style="color:#c9991e;padding:5px 6px;text-align:left">H</th><th style="color:#c9991e;padding:5px 6px;min-width:68px">Wolf</th><th style="color:#c9991e;padding:5px;min-width:48px">Lone</th>';
+  a.forEach(function(i){h+='<th style="color:#c9991e;padding:5px;min-width:62px">'+pn(i).slice(0,6)+'</th>';});
+  h+='</tr></thead><tbody>';
+  C.forEach(function(_,hi){
+    var wp=a[hi%4],dec=WD[hi].dec;
+    h+='<tr style="border-bottom:1px solid rgba(255,255,255,.025)"><td style="color:#f5edd5;font-weight:700;padding:4px 6px">'+(hi+1)+'</td>';
+    h+='<td style="color:#c9991e;padding:4px 6px;font-size:10px">'+pn(wp).slice(0,8)+'</td>';
+    h+='<td style="padding:3px 4px"><button class="wb '+(dec===-1?'on':'off')+'" data-nav="wolf:'+hi+':0" onkeydown="gridTab(event,this)" onclick="setWolf('+hi+',-1)">LONE</button></td>';
+    a.forEach(function(i,ai){if(i!==wp)h+='<td style="padding:3px 4px"><button class="wb '+(dec===i?'on':'off')+'" data-nav="wolf:'+hi+':'+(ai+1)+'" onkeydown="gridTab(event,this)" onclick="setWolf('+hi+','+i+')">'+pn(i).slice(0,5)+'</button></td>';else h+='<td style="color:#1a3020;text-align:center">—</td>';});
+    h+='</tr>';
+  });
+  h+='</tbody></table></div></div>';
+  return h;
+}
+
+// ── Results render ────────────────────────────────────────────────────────────
+function rResults(){
+  var a=ais();
+  var h='<div id="ntf" class="ntf'+(nM?' on':'')+'">'+nM+'</div>';
+
+  var net=NET();
+  // ── Scores summary ────────────────────────────────────────────────────────
+  if(a.length){
+    var fPar=C.slice(0,9).reduce(function(s,x){return s+x.par;},0);
+    var bPar=C.slice(9,18).reduce(function(s,x){return s+x.par;},0);
+    var rPar=fPar+bPar;
+    var dotsR=dotsCalc(),junkR=junkCalc();
+    var showDots=!!(dotsR),showJunk=!!(junkR);
+    var cols=['','F','B','Gross','Net','+/-'];
+    if(showDots)cols.push('Dots');
+    if(showJunk)cols.push('Junk');
+    h+='<div class="card" style="margin-bottom:10px"><div class="ct">Scores</div>';
+    h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:11px">';
+    h+='<thead><tr style="border-bottom:1px solid #1a4028">';
+    cols.forEach(function(col,ci){h+='<td style="padding:4px 8px;color:#c9991e;font-weight:700;text-align:'+(ci===0?'left':'center')+'">'+col+'</td>';});
+    h+='</tr></thead><tbody>';
+    a.forEach(function(i){
+      var fGr=GR[i].slice(0,9).map(Number),bGr=GR[i].slice(9,18).map(Number);
+      var fNt=net[i].slice(0,9),bNt=net[i].slice(9,18);
+      var fG=fGr.every(function(v){return!isNaN(v);})?fGr.reduce(function(s,b){return s+b;},0):null;
+      var bG=bGr.every(function(v){return!isNaN(v);})?bGr.reduce(function(s,b){return s+b;},0):null;
+      var totG=(fG!=null&&bG!=null)?fG+bG:(fG!=null?fG:bG);
+      var fN=fNt.every(function(v){return v!=null;})?fNt.reduce(function(s,b){return s+b;},0):null;
+      var bN=bNt.every(function(v){return v!=null;})?bNt.reduce(function(s,b){return s+b;},0):null;
+      var totN=(fN!=null&&bN!=null)?fN+bN:(fN!=null?fN:bN);
+      var diff=totN!=null?totN-rPar:null;
+      var tc=diff!=null?sC(diff):'#4a7050';
+      h+='<tr style="border-bottom:1px solid #0d2a18">';
+      h+='<td style="padding:6px 8px;color:#c9991e;font-weight:700;white-space:nowrap">'+pn(i)+'<br><span style="font-size:9px;color:#2a5030;font-weight:400">HCP '+P[i].hcp+'</span></td>';
+      h+='<td style="text-align:center;padding:6px 4px;color:#88c898">'+(fG!=null?fG:'—')+'</td>';
+      h+='<td style="text-align:center;padding:6px 4px;color:#88c898">'+(bG!=null?bG:'—')+'</td>';
+      h+='<td style="text-align:center;padding:6px 4px;color:#f5edd5;font-weight:700">'+(totG!=null?totG:'—')+'</td>';
+      h+='<td style="text-align:center;padding:6px 4px;color:#f5edd5;font-weight:700">'+(totN!=null?totN:'—')+'</td>';
+      h+='<td style="text-align:center;padding:6px 4px;font-weight:700;color:'+tc+'">'+(diff!=null?(diff>0?'+':'')+diff:'—')+'</td>';
+      if(showDots){var dtR=dotTotals(),isLd=dtR.leaders.indexOf(i)>-1;h+='<td style="text-align:center;padding:6px 4px;font-weight:700;color:'+(isLd?'#c9991e':'#88c898')+'">'+dtR.cnt[i]+(isLd?' ★':'')+'</td>';}
+      if(showJunk){var jtR=junkTotals(),isJl=jtR.leaders.indexOf(i)>-1;h+='<td style="text-align:center;padding:6px 4px;font-weight:700;color:'+(isJl?'#c9991e':'#88c898')+'">'+jtR.cnt[i]+(isJl?' ★':'')+'</td>';}
+      h+='</tr>';
+    });
+    h+='</tbody></table></div></div>';
+  }
+
+  // Build compact bet cards
+  var cards=[];
+
+  // Nassau
+  var N=nassauCalc();
+  if(N){
+    var nex='';
+    nassauMus().forEach(function(mu){
+      if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
+      var segs=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
+        var res=nassauHoles(mu.p1,mu.p2,sg[0],sg[1]);
+        if(!res.complete)return sg[2]+':?';
+        var lbl=res.w1>res.w2?pn(mu.p1)+' '+res.w1+'-'+res.w2:res.w2>res.w1?pn(mu.p2)+' '+res.w2+'-'+res.w1:'Tie '+res.w1+'-'+res.w2;
+        return sg[2]+':'+lbl;
+      }).join('  ');
+      nex+='<div style="font-size:9px;color:#7acc90;line-height:1.6">'+pn(mu.p1)+' v '+pn(mu.p2)+'<br><span style="color:#4a7050">'+segs+'</span></div>';
+    });
+    nassauTmus().forEach(function(mu){
+      if(!mu.t1||!mu.t2||mu.t1.concat(mu.t2).some(function(p){return!P[p]||!P[p].on;}))return;
+      var t1n=pn(mu.t1[0])+'/'+pn(mu.t1[1]),t2n=pn(mu.t2[0])+'/'+pn(mu.t2[1]);
+      var segs=[[0,8,'F'],[9,17,'B'],[0,17,'O']].map(function(sg){
+        var res=nassauHolesTeam(mu.t1,mu.t2,sg[0],sg[1]);
+        if(!res.complete)return sg[2]+':?';
+        var lbl=res.w1>res.w2?t1n+' '+res.w1+'-'+res.w2:res.w2>res.w1?t2n+' '+res.w2+'-'+res.w1:'Tie '+res.w1+'-'+res.w2;
+        return sg[2]+':'+lbl;
+      }).join('  ');
+      nex+='<div style="font-size:9px;color:#7acc90;line-height:1.6"><span style="color:#c9991e">2v2</span> '+t1n+' v '+t2n+'<br><span style="color:#4a7050">'+segs+'</span></div>';
+    });
+    cards.push(mkBetCard('Nassau',N,a,nex));
+  }
+  // Match
+  var M=matchCalc();
+  if(M){
+    var mex='';
+    BT.match.mus.forEach(function(mu){
+      if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
+      var run=0,played=0;
+      C.forEach(function(_,hi){var n1=net[mu.p1][hi],n2=net[mu.p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
+      var rem=18-played,abs=Math.abs(run),ldr=run>0?mu.p1:run<0?mu.p2:null;
+      var st=ldr?(abs>rem&&played>0?pn(ldr)+' wins '+abs+'&'+rem:pn(ldr)+' '+abs+'UP'):('All Square');
+      mex+='<div style="font-size:9px;color:#c9991e;line-height:1.6">'+pn(mu.p1)+' v '+pn(mu.p2)+'<br><span style="color:#8ab890">'+st+(played<18?' ('+rem+' left)':'')+'</span></div>';
+    });
+    cards.push(mkBetCard('Match Play',M,a,mex));
+  }
+  var W=wolfCalc(); if(W)cards.push(mkBetCard('Wolf',W,a));
+  var S6=s666Calc();
+  if(S6){
+    var ex6='';
+    ['H1-6','H7-12','H13-18'].forEach(function(lbl,si){
+      var seg=BT.s666.segs[si],t1=seg.t1,t2=seg.t2,st=s666SegState(seg,si);
+      ex6+='<div style="font-size:9px;color:#a0c8a8;line-height:1.7"><span style="color:#4a7050">'+lbl+'</span> '+pn(t1[0])+'&amp;'+pn(t1[1])+' <span style="color:#c9991e;font-weight:700">'+st.w1+'-'+st.w2+'</span> '+pn(t2[0])+'&amp;'+pn(t2[1])+'</div>';
+    });
+    cards.push(mkBetCard('6/6/6',S6,a,ex6));
+  }
+  if(BT.s531.on&&ais().length===3){
+    var pts=s531Pts(),ex53='';
+    ais().forEach(function(i){ex53+='<div style="font-size:9px;color:#7acc90;line-height:1.6">'+pn(i)+' <span style="color:#c9991e">'+pts[i]+' pts</span></div>';});
+    cards.push(mkBetCard('5-3-1',s531Calc(),a,ex53));
+  }
+  var P3=p3cCalc(); if(P3)cards.push(mkBetCard('Par 3 Clock',P3,a));
+  var D=dotsCalc();
+  if(D){
+    var dtC=dotTotals(),exD='';
+    a.forEach(function(i){
+      var isLd=dtC.leaders.indexOf(i)>-1,gap=(dtC.max-dtC.cnt[i])*dotRate();
+      exD+='<div style="font-size:9px;line-height:1.7;color:'+(isLd?'#c9991e':'#a0c8a8')+'">'+pn(i)+' <span style="font-weight:700">'+dtC.cnt[i]+'</span> dots'+(isLd?' <span style="color:#30f858">★ leader</span>':' <span style="color:#4a7050">owes '+fm(-gap)+'</span>')+'</div>';
+    });
+    if(dtC.leaders.length>1)exD+='<div style="font-size:9px;color:#4a7050;margin-top:3px">Pot split '+dtC.leaders.length+' ways</div>';
+    cards.push(mkBetCard('Dots',D,a,exD));
+  }
+  var J=junkCalc();
+  if(J){
+    var jtC=junkTotals(),exJ='';
+    a.forEach(function(i){
+      var isLd=jtC.leaders.indexOf(i)>-1,gap=(jtC.max-jtC.cnt[i])*junkRate();
+      exJ+='<div style="font-size:9px;line-height:1.7;color:'+(isLd?'#c9991e':'#a0c8a8')+'">'+pn(i)+' <span style="font-weight:700">'+jtC.cnt[i]+'</span> junk'+(isLd?' <span style="color:#30f858">★ leader</span>':' <span style="color:#4a7050">owes '+fm(-gap)+'</span>')+'</div>';
+    });
+    if(jtC.leaders.length>1)exJ+='<div style="font-size:9px;color:#4a7050;margin-top:3px">Pot split '+jtC.leaders.length+' ways</div>';
+    cards.push(mkBetCard('Junk',J,a,exJ));
+  }
+
+  // Compact grid — fills available width, 3+ cards per row on wide screens
+  if(cards.length){
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:9px;margin-bottom:14px">';
+    cards.forEach(function(c){h+=c;});
+    h+='</div>';
+  }else{
+    h+='<div class="card"><p style="color:#4a7050">Enable bets in Setup to see results.</p></div>';
+  }
+
+  // ── Round & Booking Fees ──────────────────────────────────────────────────
+  var _excl=RF.feeExclude||[];
+  var _inpStyle='width:80px;padding:5px 8px;border-radius:5px;background:#001a0e;border:1px solid #1a4028;color:#f5edd5;font-size:13px;text-align:right';
+  var _selStyle='padding:5px 6px;border-radius:5px;background:#001a0e;border:1px solid #1a4028;color:#f5edd5;font-size:12px;min-width:120px';
+  function _feeSelHtml(field,val){
+    var o='<option value="-1"'+(val==null?' selected':'')+'>— nobody —</option>';
+    a.forEach(function(i){o+='<option value="'+i+'"'+(val===i?' selected':'')+'>'+pn(i)+'</option>';});
+    return '<select style="'+_selStyle+'" onchange="RF.'+field+'=(+this.value===-1?null:+this.value);render()">'+o+'</select>';
+  }
+  h+='<div class="card" style="margin-bottom:10px;border-color:rgba(100,160,120,.35)">';
+  h+='<div class="ct" style="margin-bottom:12px">Round Fees</div>';
+  h+='<div style="font-size:10px;color:#4a7050;margin-bottom:14px">Enter who paid and how much. Each fee is split evenly among all golfers (excluding anyone gifted the round). Tab or click out of an amount field to apply.</div>';
+
+  // Round cost row
+  var _rp=a.filter(function(i){return _excl.indexOf(i)<0;});
+  var _rAmt=+(RF.roundAmt)||0, _bAmt=+(RF.bookAmt)||0;
+  h+='<div style="display:grid;grid-template-columns:auto 1fr 1fr auto;align-items:center;gap:10px 14px;margin-bottom:10px;padding:12px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
+  h+='<div style="font-size:11px;font-weight:700;color:#c9991e;white-space:nowrap">Round Cost</div>';
+  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90;white-space:nowrap">Paid by</span>'+_feeSelHtml('roundPayer',RF.roundPayer)+'</div>';
+  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">$</span>';
+  h+='<input type="number" min="0" step="1" value="'+(_rAmt||'')+'" placeholder="0.00" style="'+_inpStyle+'" onchange="RF.roundAmt=+this.value||0;render()"></div>';
+  h+=RF.roundPayer!=null&&_rAmt>0&&_rp.length>0?'<div style="font-size:10px;color:#4a7050;white-space:nowrap">$'+(_rAmt/_rp.length).toFixed(2)+'/ea &times;'+_rp.length+'</div>':'<div></div>';
+  h+='</div>';
+
+  // Booking fee row
+  h+='<div style="display:grid;grid-template-columns:auto 1fr 1fr auto;align-items:center;gap:10px 14px;margin-bottom:14px;padding:12px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
+  h+='<div style="font-size:11px;font-weight:700;color:#c9991e;white-space:nowrap">Booking Fee</div>';
+  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90;white-space:nowrap">Paid by</span>'+_feeSelHtml('bookPayer',RF.bookPayer)+'</div>';
+  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">$</span>';
+  h+='<input type="number" min="0" step="1" value="'+(_bAmt||'')+'" placeholder="0.00" style="'+_inpStyle+'" onchange="RF.bookAmt=+this.value||0;render()"></div>';
+  h+=RF.bookPayer!=null&&_bAmt>0&&_rp.length>0?'<div style="font-size:10px;color:#4a7050;white-space:nowrap">$'+(_bAmt/_rp.length).toFixed(2)+'/ea &times;'+_rp.length+'</div>':'<div></div>';
+  h+='</div>';
+
+  // Exclude from fees
+  if(a.length>1){
+    h+='<div style="padding:12px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
+    h+='<div style="font-size:11px;font-weight:700;color:#c9991e;margin-bottom:10px">Exclude from Fees <span style="font-size:9px;font-weight:400;color:#4a7050">(gifted the round — pays nothing)</span></div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:14px">';
+    a.forEach(function(i){
+      var chk=_excl.indexOf(i)>=0;
+      h+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:'+(chk?'#c9991e':'#b8d8c0')+';cursor:pointer;font-weight:'+(chk?'700':'400')+'">';
+      h+='<input type="checkbox"'+(chk?' checked':'')+' onchange="var ex=RF.feeExclude||[];var ix=ex.indexOf('+i+');if(this.checked){if(ix<0)ex.push('+i+');}else{if(ix>=0)ex.splice(ix,1);}RF.feeExclude=ex;render()" style="accent-color:#c9991e;width:15px;height:15px">';
+      h+=pn(i)+'</label>';
+    });
+    h+='</div></div>';
+  }
+  h+='</div>';
+
+  // ── Betting Ledger (bets only, no fees) — shown only when fees are set ────
+  var _hasFees=(_rAmt>0&&RF.roundPayer!=null)||(_bAmt>0&&RF.bookPayer!=null);
+  var _bt=betsTotal(), _ft=feesTotal(), _ov=overall();
+  if(_hasFees){
+    var _btTxns=settleDebts(_bt,ais());
+    h+='<div class="card" style="margin-bottom:10px;border-color:rgba(80,140,100,.4)">';
+    h+='<div class="ct" style="margin-bottom:8px">Betting Ledger <span style="font-size:9px;font-weight:400;color:#4a7050;letter-spacing:0">(bets only, before fees)</span></div>';
+    h+=mkBalGrid(_bt,ais(),'17px','14px');
+    h+='<div style="border-top:1px solid #1a3820;padding-top:10px">';
+    h+=mkSettleTxns(_btTxns,true);
+    h+='</div>';
+    h+='</div>';
+
+    // Fee breakdown summary — one row per fee, one column per player
+    var _feeRows=[];
+    (function(){
+      var _paying=ais().filter(function(i){return _excl.indexOf(i)<0;});
+      [[RF.roundPayer,_rAmt,'Round Cost'],[RF.bookPayer,_bAmt,'Booking Fee']].forEach(function(def){
+        var payer=def[0],amt=def[1],label=def[2];
+        if(payer==null||amt<=0)return;
+        if(_paying.indexOf(payer)<0)return;
+        var share=amt/_paying.length;
+        var row={label:label,amt:amt,vals:{}};
+        ais().forEach(function(i){
+          if(_excl.indexOf(i)>=0){row.vals[i]=null;}          // excluded — gifted
+          else if(i===payer){row.vals[i]=amt-share;}           // payer credit
+          else{row.vals[i]=-share;}                            // everyone else owes
+        });
+        _feeRows.push(row);
+      });
+    })();
+    if(_feeRows.length){
+      var _ai=ais();
+      h+='<div class="card" style="margin-bottom:10px;border-color:rgba(100,130,80,.3)">';
+      h+='<div class="ct" style="margin-bottom:10px">Fee Breakdown</div>';
+      h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:12px">';
+      // Header row: player names
+      h+='<thead><tr style="border-bottom:1px solid #1a4028">';
+      h+='<th style="text-align:left;padding:6px 10px;color:#4a7050;font-size:10px;font-weight:600;white-space:nowrap">Fee</th>';
+      h+='<th style="text-align:center;padding:6px 8px;color:#4a7050;font-size:10px;font-weight:600;white-space:nowrap">Total</th>';
+      _ai.forEach(function(i){h+='<th style="text-align:center;padding:6px 8px;color:#c9991e;font-weight:700;white-space:nowrap">'+pn(i)+'</th>';});
+      h+='</tr></thead><tbody>';
+      _feeRows.forEach(function(row){
+        h+='<tr style="border-bottom:1px solid rgba(255,255,255,.04)">';
+        h+='<td style="padding:8px 10px;color:#7acc90;font-weight:600;white-space:nowrap">'+row.label+'</td>';
+        h+='<td style="padding:8px;text-align:center;color:#f5edd5;font-weight:700">$'+row.amt.toFixed(2)+'</td>';
+        _ai.forEach(function(i){
+          var v=row.vals[i];
+          if(v===null){
+            h+='<td style="padding:8px;text-align:center;color:#2a5030;font-size:10px">gifted</td>';
+          }else{
+            h+='<td style="padding:8px;text-align:center;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</td>';
+          }
+        });
+        h+='</tr>';
+      });
+      // Total row if more than one fee
+      if(_feeRows.length>1){
+        h+='<tr style="border-top:1px solid #1a4028">';
+        h+='<td style="padding:8px 10px;color:#c9991e;font-weight:700">Total Fees</td>';
+        var _totAmt=_feeRows.reduce(function(s,r){return s+r.amt;},0);
+        h+='<td style="padding:8px;text-align:center;color:#c9991e;font-weight:700">$'+_totAmt.toFixed(2)+'</td>';
+        _ai.forEach(function(i){
+          var v=_ft[i]||0;
+          h+='<td style="padding:8px;text-align:center;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</td>';
+        });
+        h+='</tr>';
+      }
+      h+='</tbody></table></div></div>';
+    }
+  }
+
+  // ── Final Ledger (bets + fees) ────────────────────────────────────────────
+  var _txns=settleDebts(_ov,ais());
+  h+='<div class="card" style="border-color:rgba(201,153,30,.5)">';
+  h+='<div class="ct" style="margin-bottom:10px">Final Ledger'+(_hasFees?' <span style="font-size:9px;font-weight:400;color:#4a7050;letter-spacing:0">(bets + fees)</span>':'')+'</div>';
+
+  // Net balance grid
+  h+='<div style="font-size:9px;color:#4a7050;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Net Balance Per Player</div>';
+  h+=mkBalGrid(_ov,ais());
+
+  // Minimum transactions
+  h+='<div style="border-top:1px solid #1a3820;padding-top:12px">';
+  h+='<div style="font-size:9px;color:#4a7050;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">Minimum Transactions to Settle Up</div>';
+  h+=mkSettleTxns(_txns,false);
+  h+='</div></div>';
+  if(editingRoundId){
+    var eRd=rounds.find(function(r){return r.id===editingRoundId;});
+    var eLabel=eRd?eRd.date+' \xb7 '+eRd.course:'this round';
+    h+='<div style="background:rgba(201,153,30,.08);border:1px solid rgba(201,153,30,.3);border-radius:6px;padding:10px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">';
+    h+='<span style="font-size:11px;color:#c9991e">&#9998; Editing: <strong>'+eLabel+'</strong></span>';
+    h+='<button class="btn sm" onclick="newRound()" style="white-space:nowrap">+ New Round</button>';
+    h+='</div>';
+    h+='<div style="margin-top:8px"><button class="btn gold" style="width:100%;padding:13px;font-size:14px;letter-spacing:2px" onclick="svRound()">💾 UPDATE SAVED ROUND</button></div>';
+  }else{
+    h+='<div style="margin-top:10px"><button class="btn gold" style="width:100%;padding:13px;font-size:14px;letter-spacing:2px" onclick="svRound()">💾 SAVE ROUND TO HISTORY</button></div>';
+  }
+  return h;
+}
+
+// ── History render ────────────────────────────────────────────────────────────
+function rHist(){
+  var h='<div id="ntf" class="ntf'+(nM?' on':'')+'">'+nM+'</div>';
+  if(!rounds.length)return h+'<div class="card"><p style="color:#4a7050">No saved rounds yet. Complete a round and click Save Round in the Results tab.</p></div>';
+  h+='<div class="card"><div class="ct">History ('+rounds.length+')</div>';
+  rounds.forEach(function(rd){
+    var hasState=!!(rd.state);
+    h+='<div style="background:#001208;border:1px solid #143220;border-radius:6px;padding:12px;margin-bottom:8px">';
+    // Header row
+    h+='<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">';
+    h+='<span style="color:#c9991e;font-weight:700">'+rd.date+'</span>';
+    h+='<span style="font-size:10px;color:#4a7050">'+rd.course+'</span>';
+    h+='</div>';
+    // Per-player summary
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-bottom:10px">';
+    rd.players.forEach(function(pl,idx){
+      var v=rd.results[pl]||0;
+      var grossStr='';
+      if(hasState){
+        var s=rd.state,pi=s.P.findIndex(function(p){return p.name===pl;});
+        if(pi>=0){
+          var gr=s.GR[pi].map(Number);
+          var tot=gr.every(function(x){return!isNaN(x);})?gr.reduce(function(a,b){return a+b;},0):null;
+          if(tot!=null)grossStr='<span style="color:#4a7050;font-size:9px"> · '+tot+' gross</span>';
+        }
+      }
+      h+='<div style="background:#001e12;border:1px solid #1a3820;border-radius:4px;padding:6px 8px">';
+      h+='<div style="color:#7acc90;font-size:11px;font-weight:700;margin-bottom:2px">'+pl+grossStr+'</div>';
+      h+='<div style="font-size:14px;font-weight:700" class="'+(v>0?'pos':v<0?'neg':'neu')+'">'+fm(v)+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+    // Action buttons
+    h+='<div style="display:flex;gap:6px">';
+    if(hasState)h+='<button class="btn sm" onclick="loadRound(\''+rd.id+'\')" style="color:#c9991e;border-color:#3a2a00">&#9998; Edit Round</button>';
+    h+='<button class="btn del sm" onclick="deleteRound(\''+rd.id+'\')">&#x2715; Delete</button>';
+    h+='</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+function getTabs(){var a=ais(),ts=[{id:'setup',l:'Setup'},{id:'scores',l:'Scores'}];if(BT.dots.on||BT.junk.on||BT.p3c.on)ts.push({id:'extras',l:'Dots/Junk'});if(BT.wolf.on&&a.length===4)ts.push({id:'wolf',l:'Wolf'});ts.push({id:'results',l:'Results'},{id:'flow',l:'Money Flow'},{id:'hist',l:'History'});return ts;}
+function setTab(t){TAB=t;render();}
+function setNumP(n){numP=n;P.forEach(function(p,i){p.on=i<n;});if(n!==4){BT.wolf.on=false;BT.s666.on=false;}if(n!==3){BT.s531.on=false;}invalidateCalcCache();render();}
+function togBet(k){BT[k].on=!BT[k].on;if(!BT[k].on){if(k==='dots')uiState.dotsOpen=false;if(k==='junk')uiState.junkOpen=false;}render();}
+function addMu(k){BT[k].mus.push(k==='nassau'?{p1:0,p2:1,front:5,back:5,tot:10}:{p1:0,p2:1,stake:10});render();}
+function delMu(k,idx){BT[k].mus.splice(idx,1);render();}
+function togNassauH2H(){
+  var on=!nassauH2HOn();BT.nassau.h2h=on;
+  if(on&&!(BT.nassau.mus||[]).length)BT.nassau.mus=[{p1:0,p2:1,front:5,back:5,tot:10}];
+  invalidateCalcCache();render();
+}
+function togNassauTeams(){
+  var on=!nassauTeamsOn();BT.nassau.teams=on;
+  var a=ais();
+  if(on&&!(BT.nassau.tmus||[]).length)BT.nassau.tmus=[{t1:[a[0]||0,a[1]||1],t2:[a[2]||2,a[3]||3],front:5,back:5,tot:10}];
+  invalidateCalcCache();render();
+}
+function addTmu(){var a=ais();if(!BT.nassau.tmus)BT.nassau.tmus=[];BT.nassau.tmus.push({t1:[a[0]||0,a[1]||1],t2:[a[2]||2,a[3]||3],front:5,back:5,tot:10});render();}
+function delTmu(idx){BT.nassau.tmus.splice(idx,1);render();}
+function setTmuPlayer(mi,team,slot,pi){var mu=BT.nassau.tmus[mi];if(team===1)mu.t1[slot]=pi;else mu.t2[slot]=pi;render();}
+function setSI(pi,hi,v){
+  GR[pi][hi]=v;
+  invalidateCalcCache();
+  updateScoreCell(pi,hi);
+}
+function setDot(hi,pi,t,v){DT[hi][pi][t]=v;render();}
+function setJK(hi,pi,t,v){JK[hi][pi][t]=v;render();}
+function setP3Cp(hi,v){P3C[hi].cp=v===-1?null:+v;render();}
+function setP3Ctp(hi,v){P3C[hi].tp=v;render();}
+function setWolf(hi,dec){WD[hi].dec=WD[hi].dec===dec?null:dec;render();}
+function selPly(pi,val){if(val==='__new__'){showNewP[pi]=true;render();return;}if(val){P[pi].name=val;var sg=sG.find(function(g){return g.name===val;});if(sg)P[pi].hcp=sg.hcp;}else P[pi].name='';render();}
+function addPly(pi){var nm=document.getElementById('nnm'+pi),nh=document.getElementById('nnh'+pi);if(!nm)return;var name=nm.value.trim(),hcp=parseInt(nh?nh.value:10)||10;if(!name)return;P[pi].name=name;P[pi].hcp=hcp;showNewP[pi]=false;if(!sG.find(function(g){return g.name===name;})){sG.push({name:name,hcp:hcp});svG();}render();}
+
+// Tab moves horizontally across the same player's holes — no DOM rebuild needed
+// ── Grid keyboard navigation ──────────────────────────────────────────────────
+// Every editable grid tags its cells data-nav="grid:row:col". Tab walks left to
+// right along a row and wraps to the start of the next row; Shift+Tab reverses.
+// Disabled cells are skipped. Focus lands on a timeout so it survives the
+// render() that a cell's onchange fires — without that the rebuild drops focus
+// to <body> and the user has to click back in.
+function navCells(grid){
+  var out=[];
+  Array.prototype.forEach.call(document.querySelectorAll('[data-nav^="'+grid+':"]'),function(el){
+    if(el.disabled)return;
+    var p=(el.getAttribute('data-nav')||'').split(':');
+    if(p.length<3)return;
+    out.push({el:el,row:+p[1],col:+p[2]});
+  });
+  out.sort(function(x,y){return x.row!==y.row?x.row-y.row:x.col-y.col;});
+  return out;
+}
+function focusNav(nav){
+  var el=document.querySelector('[data-nav="'+nav+'"]');
+  if(!el)return;
+  try{el.focus();}catch(e){return;}
+  if(el.tagName==='INPUT'&&(el.type==='number'||el.type==='text')){try{el.select();}catch(e){}}
+}
+function gridTab(e,el){
+  if(e.key!=='Tab')return;
+  var nav=el.getAttribute('data-nav');if(!nav)return;
+  var cells=navCells(nav.split(':')[0]);
+  var idx=-1;
+  for(var i=0;i<cells.length;i++){if(cells[i].el===el){idx=i;break;}}
+  if(idx<0||!cells.length)return;
+  e.preventDefault();
+  var target=cells[(idx+(e.shiftKey?-1:1)+cells.length)%cells.length].el.getAttribute('data-nav');
+  el.blur();                                   // let onchange (and any render) run first
+  setTimeout(function(){focusNav(target);},0); // then land on the neighbour in the fresh DOM
+}
+
+// Targeted cell update — updates one score cell in-place without rebuilding the table
+function updateScoreCell(pi,hi){
+  var net=NET();
+  var g=parseInt(GR[pi][hi]);
+  var nv=isNaN(g)?null:net[pi][hi];
+  var hole=C[hi];
+  var nc=nv!=null?sC(nv-hole.par):'rgba(245,237,213,.18)';
+  var inp=document.querySelector('.scinp[data-pi="'+pi+'"][data-hi="'+hi+'"]');
+  if(!inp)return;
+  inp.style.background=nv!=null?nc+'22':'rgba(255,255,255,.04)';
+  inp.style.borderColor=nv!=null?nc+'aa':'rgba(255,255,255,.12)';
+  inp.style.color=nv!=null?nc:'#3a6040';
+  var sp=inp.nextElementSibling;
+  if(sp){sp.textContent=nv!=null?String(nv):'·';sp.style.color=nv!=null?nc:'#1a3820';}
+  updateRowTotals(pi,hi<9?0:1);
+  updateRowTotals(pi,2);
+  updateNassauLive();
+  update666Live();
+}
+
+// Updates a gross/net total cell in-place. nine=0 front, nine=1 back, nine=2 full round
+function updateRowTotals(pi,nine){
+  var net=NET();
+  var s=nine===2?0:nine*9,count=nine===2?18:9;
+  var ns=net[pi].slice(s,s+count);
+  var grs=GR[pi].slice(s,s+count).map(function(v){return parseInt(v);});
+  var pTot=C.slice(s,s+count).reduce(function(a,h){return a+h.par;},0);
+  var nTot=ns.every(function(v){return v!=null;})?ns.reduce(function(a,b){return a+b;},0):null;
+  var gTot=grs.every(function(v){return!isNaN(v);})?grs.reduce(function(a,b){return a+b;},0):null;
+  var tc=nTot!=null?sC(nTot-pTot):'#4a7050';
+  var cell=document.querySelector('[data-tot-pi="'+pi+'"][data-tot-nine="'+nine+'"]');
+  if(!cell)return;
+  var spans=cell.querySelectorAll('span');
+  if(spans[0])spans[0].textContent=gTot!=null?String(gTot):'—';
+  if(spans[1]){spans[1].textContent=nTot!=null?String(nTot):'—';spans[1].style.color=tc;}
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+function render(){
+  invalidateCalcCache();
+  var root=document.getElementById('root');
+  // A grid cell's onchange calls render(), which rebuilds the DOM and would drop
+  // focus to <body> — leaving Tab with no anchor. Remember the cell and restore it.
+  var ae=document.activeElement;
+  var keepNav=(ae&&ae.getAttribute)?ae.getAttribute('data-nav'):null;
+  if(!loggedIn){root.innerHTML=rLogin();return;}
+  var tabs=getTabs();
+  var th=tabs.map(function(t){return'<button class="tab'+(TAB===t.id?' act':'')+'" onclick="setTab(\''+t.id+'\')">'+t.l+'</button>';}).join('');
+  var body='';
+  if(TAB==='setup')body=rSetup();
+  else if(TAB==='scores')body=rScores();
+  else if(TAB==='extras')body=rExtras();
+  else if(TAB==='wolf')body=rWolf();
+  else if(TAB==='results')body=rResults();
+  else if(TAB==='flow')body=rFlow();
+  else body=rHist();
+  var shareBar='<div style="display:flex;gap:4px;align-items:center;flex-shrink:0"><span style="font-size:9px;color:#3a6040;letter-spacing:.5px;white-space:nowrap">Share</span><button class="btn sm" onclick="doShare(\'native\')" style="padding:3px 7px;font-size:11px" title="Share via native share sheet">📱</button><button class="btn sm" onclick="doShare(\'x\')" style="padding:3px 7px;font-size:11px;color:#d0d0d0;border-color:#333" title="Post to X">𝕏</button><button class="btn sm" onclick="doShare(\'ig\')" style="padding:3px 7px;font-size:11px;color:#e060b8;border-color:#602848" title="Copy for Instagram">📷</button><button class="btn sm" onclick="doShare(\'tt\')" style="padding:3px 7px;font-size:11px;color:#60e0e0;border-color:#204858" title="Copy for TikTok">♪</button><button class="btn sm" onclick="doShare(\'copy\')" style="padding:3px 7px;font-size:11px" title="Copy to clipboard">📋</button></div>';
+  root.innerHTML='<div class="hdr"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px"><div class="ttl" style="margin-bottom:0">⛳ GOLF BET TRACKER'+(profile&&profile.name!=='Demo'?'<span style="font-size:10px;color:#3a6040;margin-left:14px;letter-spacing:1px">'+profile.name+'</span>':'')+'</div>'+shareBar+'</div><div class="tabs">'+th+'</div></div><div class="bd">'+body+'</div>';
+  var ntf=document.getElementById('ntf');if(ntf&&nM){ntf.textContent=nM;ntf.className='ntf on';}
+  if(keepNav){var back=document.querySelector('[data-nav="'+keepNav+'"]');if(back){try{back.focus();}catch(e){}}}
+}
+
+ldAll().then(function(){
+  if(profile)loggedIn=true;
+  render();
+  return migrateRecentRounds();
+}).then(function(n){
+  if(n){render();showN(n+' recent round'+(n>1?'s':'')+' re-scored under the updated Dots & Junk rules');}
+}).catch(function(){});
+// ── Service Worker registration ───────────────────────────────────────────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
