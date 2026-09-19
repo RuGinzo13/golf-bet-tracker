@@ -627,19 +627,17 @@ Not fixed yet, flagged for prioritization:
    if sign-out/switch-profile is wanted, it needs to be built (and wired), not restored
    as-is.
 9. ~~**Live Cloudflare Worker doesn't match `golf_proxy_worker.js` — cloud sync has
-   never worked in production.**~~ **Pipeline built Sep 19, 2026 (see CRITICAL entry
-   and Phase 8 below) — awaiting Ross's one-time Cloudflare API token + GitHub
-   secrets setup to actually fire.** Originally discovered Sep 18, 2026 (Phase 6):
-   `/sync/save` → 405, `/sync/load` → 404, `/health` has no `sync` field, CORS
-   preflight allows only `GET, OPTIONS`. Root cause was that Worker deployment was
-   100% manual (Cloudflare dashboard copy-paste per SETUP.md) with nothing enforcing
-   it ever happened — the code shipped in the repo May 11 and the dashboard was
-   simply never updated to match, silently, for over 4 months, with the app masking
-   it as "cloud offline — will sync when reconnected." Fix is no longer "redeploy
-   once" — it's "redeploy is now automatic on every push," via
-   `.github/workflows/deploy-worker.yml` + `wrangler.toml`, so this class of drift
-   cannot recur. See the Phase 8 entry below for the two remaining manual steps
-   (Ross-only — cannot be done by Claude via any available tool).
+   never worked in production.**~~ **RESOLVED Sep 19, 2026.** Worker redeployed for
+   real for the first time since April 26, 2026, via the new CI pipeline
+   (`.github/workflows/deploy-worker.yml` + `wrangler.toml`). Confirmed live:
+   `GET /health` now returns `{"status":"ok","sync":true}` — the `GOLF_SYNC` KV
+   binding is attached and working, and the deployed code has `/sync/save`,
+   `/sync/load`, and `POST` in CORS. Root cause was that Worker deployment was
+   100% manual (dashboard copy-paste) with nothing enforcing it ever happened; fix
+   is structural — deploy now rides the same `git push` that already happens for
+   every frontend change, via CI, so this can't silently drift again. See the
+   Phase 8 entry below for the full incident: two wrong values (account ID, then an
+   API token that was never actually saved) before the real fix landed.
 
 ---
 
@@ -789,4 +787,49 @@ namespaces that are easy to conflate, and they're all 32-char hex strings so not
 about the value itself signals which kind it is. When a durable config value can be
 grabbed from the account owner's own dashboard in 10 seconds, that's a more reliable
 source than inferring it from a tool call, even when the tool call succeeds.
+
+---
+
+## Session Summary, September 19, 2026 (cont'd) — Phase 8 Closed: Worker Live for the First Time Since April
+
+Three failed attempts before success, each a distinct root cause — worth recording
+all three since they're different failure classes, not one bug fixed three times:
+
+**Attempt 1 — wrong account ID.** `wrangler.toml`'s `account_id` was sourced from an
+ambiguous `id` field in a Cloudflare MCP connector response, wrongly assumed to be
+the account ID. Real error: `Authentication failed (status: 400) [code: 9106]` on
+the account-scoped Workers API path. Fixed by Ross pulling the real ID from the
+Cloudflare dashboard sidebar (`bb148aa0b9c81b62e22cd305050d8810`).
+
+**Attempt 2 — identical error after the "fix."** Same exact 9106 error, same line,
+after both `wrangler.toml` and the `CLOUDFLARE_ACCOUNT_ID` secret were corrected.
+This ruled out the account ID as the (sole) cause and pointed at the token itself.
+
+**Attempt 3 — root cause: the API token was never actually saved.** Ross discovered
+the original Cloudflare API token he created hadn't been saved/copied correctly —
+so `CLOUDFLARE_API_TOKEN` had been holding an invalid value the entire time,
+independent of whether the account ID was right. A fresh token, created and pasted
+correctly, fixed it on the next run.
+
+**Verification, not just a green checkmark:** confirmed the actual deployed code
+via the Cloudflare connector (not just GitHub Actions' pass/fail) — `/sync/save`,
+`/sync/load`, `POST` in CORS all present, matching the repo's source exactly. Ross
+independently confirmed `GET /health` returns `{"status":"ok","sync":true}` from
+his own browser. Both checks agree: the Worker is live, matches the repo, and the
+`GOLF_SYNC` KV binding is attached and functioning.
+
+**Note for next time:** three different failures produced the same-shaped symptom
+(a fast, generic Cloudflare auth rejection) — a 400/9106 error alone doesn't tell
+you *which* credential is wrong, only that *a* credential is wrong. When
+retrying after a believed fix produces the identical error, that's a signal the
+first fix wasn't the (whole) cause, not a signal to retry the same fix harder.
+Worth then checking the other credential in the pair, not just re-verifying the one
+already changed.
+
+**Still open, not yet verified:** whether `GCAPI_KEY` (the golfcourseapi.com secret)
+survived across this redeploy — Worker secrets are independent of code deploys and
+should persist, but this account's state has already surprised us twice this week
+(zero KV namespaces despite an apparently-running Worker; a token that looked saved
+but wasn't). Confirm by testing course search in the app's Setup tab, and ideally a
+real login/sync round-trip too, not just `/health`.
 

@@ -169,16 +169,16 @@ Before every change, follow these steps:
 
 ## Known Architectural Debt
 
-- **Live Cloudflare Worker does not match `golf_proxy_worker.js` in this repo —
-  cloud sync is non-functional in production.** Found Sep 18 2026 (7-phase audit,
-  Phase 6). Root cause: Worker deploy was a manual dashboard copy-paste with nothing
-  enforcing it happened — it silently never ran after the May 11 2026 commit that
-  added `/sync/save`/`/sync/load`. **Fixed structurally Sep 19 2026** — Worker now
-  deploys via GitHub Actions (`wrangler deploy`) on every push touching
-  `golf_proxy_worker.js`, so it rides the same push habit `deploy.sh` already uses
-  and cannot drift silently again. Not yet LIVE — needs Ross to create a Cloudflare
-  API token and add it + the account ID as GitHub repo secrets (2 steps, cannot be
-  done by Claude from any available tool). See errors.md Known Issues #9 / Phase 8.
+- ~~**Live Cloudflare Worker does not match `golf_proxy_worker.js`.**~~ **RESOLVED
+  Sep 19 2026.** Worker now deploys via GitHub Actions (`wrangler deploy`) on every
+  push touching `golf_proxy_worker.js` or `wrangler.toml`, confirmed live: the
+  deployed code has `/sync/save`/`/sync/load`, and `GET /health` returns
+  `{"status":"ok","sync":true}` — the `GOLF_SYNC` KV binding is attached and
+  working. Cloud sync is live in production for the first time since it was built
+  May 11 2026. See errors.md Known Issues #9 / Phase 8 for the 3-attempt incident
+  history (wrong account ID, then a Cloudflare API token that was never actually
+  saved). Still to verify: whether `GCAPI_KEY` survived the redeploy (test course
+  search in the app).
 - Single file at 2,130 lines (Sep 18 2026, up from ~1,800 in May) — no module system.
   Use consistent comment headers (`// ── Section name ──`) and never define closures
   inside render functions.
@@ -186,10 +186,8 @@ Before every change, follow these steps:
   on two devices.
 - PWA icons: `manifest.json` references `icon-192.png` and `icon-512.png` but only
   `icon.svg` exists. Rasterized PNGs not yet generated (still true Sep 18 2026).
-- KV namespace `GOLF_SYNC` exists (created Sep 18 2026) and is declared as a binding
-  in `wrangler.toml`, so the CI deploy (above) attaches it automatically — no
-  separate manual binding step needed once the CI pipeline is actually running.
-  App degrades gracefully to local-only if the binding is ever missing.
+- ~~KV namespace `GOLF_SYNC` binding.~~ **RESOLVED Sep 19 2026** — attached and
+  confirmed working via the CI deploy (`/health` returns `sync:true`).
 - `migrateRecentRounds()` only re-scores rounds saved in the last 7 days when a bet
   rule changes; older rounds are frozen on whatever math they were originally scored
   with, permanently, with no manual recompute option.

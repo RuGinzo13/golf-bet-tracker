@@ -1,8 +1,11 @@
 # Phase 8 — Cloudflare Worker CI/CD Deploy Pipeline
 
-**Status: built Sep 19, 2026. Not yet active — blocked on two Ross-only steps
-below.** This phase is a record of what was done and what's left, not a "run
-this phase" instruction — the files already exist in the repo.
+**Status: LIVE as of Sep 19, 2026.** Confirmed via the Cloudflare API directly
+(not just a green Actions checkmark) and independently via `GET /health` returning
+`{"status":"ok","sync":true}`. Took 3 attempts to actually land — see errors.md's
+Phase 8 closing entry for the full incident (wrong account ID, then a Cloudflare API
+token that looked saved but wasn't). This file is a record of what was built, not a
+"run this phase" instruction — the files already exist in the repo.
 
 ---
 
@@ -68,3 +71,13 @@ afterward:
   the account had zero KV namespaces despite the Worker having run since
   April, which was also unexpected.
 - Test an actual cloud login/sync round-trip from the app, not just `/health`.
+
+
+---
+
+## Closed out Sep 19, 2026
+
+Cloud sync is live in production for the first time since it was built May 11,
+2026. Still open: confirm `GCAPI_KEY` survived the redeploy (test course search in
+the app's Setup tab), and ideally a real login/sync round-trip in the app itself,
+not just `/health`.
