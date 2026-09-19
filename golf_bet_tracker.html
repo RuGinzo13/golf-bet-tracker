@@ -1092,8 +1092,6 @@ function csSearch(q){
       var data=await apiFetch('/search?q='+encodeURIComponent(q));
       var courses=Array.isArray(data)?data:(data.courses||data.data||[]);
       if(!courses.length){drop.innerHTML='<div style="font-size:10px;color:#4a7050;padding:8px 11px">No courses found.</div>';return;}
-      // Cache full course objects so pickCourse can use tee data without a second API call
-      courses.forEach(function(c){var id=c.id||c.course_id||c.courseId||'';if(id)courseCache[id]=c;});
       drop.innerHTML=courses.slice(0,12).map(function(c){
         var id=c.id||c.course_id||c.courseId||'';
         var rawName=c.club_name||c.courseName||c.name||'Unknown';
@@ -1138,12 +1136,15 @@ async function pickCourse(id,rawName){
     }
     if(!sets.length)throw new Error('No scorecard data in response');
     courseTeeSets=sets;
-    // Auto-pick: first male tee whose name matches common middle-tee keywords, else middle index
+    // Auto-pick: first preferred-keyword tee in priority order, skipping combo tees
     var maleOnly=sets.filter(function(t){return t.name.indexOf('♀')===-1;});
     var src=maleOnly.length?maleOnly:sets;
     var prefer=['white','middle','medal','blue','regular','men'];
     var best=src[Math.floor((src.length-1)/2)];
-    src.forEach(function(t){if(prefer.some(function(k){return(t.name||'').toLowerCase().indexOf(k)!==-1;}))best=t;});
+    for(var pi=0;pi<prefer.length;pi++){
+      var hit=src.find(function(t){return(t.name||'').toLowerCase().indexOf(prefer[pi])!==-1&&(t.name||'').toLowerCase().indexOf('combo')===-1;});
+      if(hit){best=hit;break;}
+    }
     courseTeeIdx=sets.indexOf(best);
     applyTee(courseTeeIdx);
   }catch(e){

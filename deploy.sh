@@ -4,7 +4,7 @@
 set -e
 cd "$(dirname "$0")"
 cp golf_bet_tracker.html index.html
-git add index.html
+git add golf_bet_tracker.html index.html
 git commit -m "Update $(date '+%b %d %Y')"
 git push
 echo ""
