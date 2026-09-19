@@ -1,3 +1,4 @@
+// CI deploy verification 2026-09-19
 // Golf Course API Proxy + Profile Sync - Cloudflare Worker
 //
 // SETUP (one-time, ~2 min in Cloudflare dashboard):
