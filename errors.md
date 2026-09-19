@@ -505,6 +505,94 @@ it still degrades to a safe zero-sum no-op rather than crashing.
 
 ---
 
+## End-to-End Flow Test — September 18, 2026 (Phase 6, test-only — no fixes applied)
+
+No browser automation tool was available in this session, so steps 1–7 weren't
+literal UI clicks — but they weren't a pure code trace either. I extracted the real
+`golf_bet_tracker.html` calc/save/load functions verbatim (`storage`, `svRound`,
+`loadRound`, `newRound`, `ldAll`, `migrateRecentRounds`, every calc function) and ran
+them, unmodified, against a stubbed `localStorage`/`document`, via `osascript -l
+JavaScript` (a real JS engine — no Node available in this environment). Step 8 was
+tested against the actual live Worker over the network.
+
+### Checklist
+
+1. **New round setup, 4 players** — PASS. `ais()` correctly returns all 4 active
+   indices after setting `P`/`numP`.
+2. **All 8 bet types enabled with non-trivial stakes** — PASS. All 8 configured and
+   active (`nassau` h2h+2v2, `match`, `wolf`, `s666`, `p3c`, `dots`, `junk`; `s531`
+   correctly stays off since it's 3-player-only and this test used 4).
+3. **18 holes incl. birdie, eagle, hole-in-one, push hole, 3-putt par-3** — PASS. Ace
+   on a par-4 correctly classified as hole-in-one (not double-counted as eagle);
+   eagle on a par-3 correctly resolves as an ace per real golf rules (they're the
+   same score); Par 3 Clock 3-putt flag correctly produced a negative (owed) result
+   for the 3-putting player.
+4. **Results math for ≥2 bet types, hand-checked** — PASS. `dotsCalc()` and
+   `p3cCalc()` both verified to sum to exactly zero across active players; the
+   3-putting player was confirmed to owe money as expected.
+5. **Save the round** — PASS. `svRound()` persisted to storage, set `editingRoundId`,
+   and the round appeared in `rounds[]` — all against the real function, not a mock.
+6. **Reload History** — PASS. Wiped the in-memory `rounds[]` (simulating a fresh app
+   boot) and re-ran the real `ldAll()`; the round came back from storage with results
+   identical to what was saved.
+7. **Reopen a saved round into Setup, confirm no state corruption** — PASS.
+   Deliberately corrupted live `GR`/`BT` state before calling `loadRound()`, then
+   confirmed it restored the saved state (not the corrupted live state) exactly;
+   confirmed re-saving an opened round edits in place rather than duplicating;
+   confirmed `newRound()` fully resets `GR`/`RF`/`editingRoundId`.
+8. **Cloud login/sync round-trip against the real Worker** — **FAIL. Serious,
+   previously-undiscovered finding**, not a code bug:
+
+   **The live Cloudflare Worker at `golf-proxy.rmg-1313.workers.dev` is running code
+   that predates the entire cloud-sync feature — it does not match
+   `golf_proxy_worker.js` in this repo, which has had `/sync/save`/`/sync/load`
+   since the commit that shipped cloud login on May 11, 2026.** Evidence, tested live
+   just now:
+   - `GET /health` → `{"status":"ok","service":"golf-proxy"}` — no `sync` field.
+     The repo's `/health` handler returns `{status:'ok', sync: !!env.GOLF_SYNC}`; the
+     `"service"` key doesn't exist anywhere in the repo's worker source at all.
+   - `POST /sync/save` → **405 Method Not Allowed** (plain text body, not JSON).
+   - `GET /sync/load?user=...&pin=...` → **404 Not Found** (plain text body).
+   - The CORS preflight (`OPTIONS /sync/save`) returns
+     `access-control-allow-methods: GET, OPTIONS` — **POST is not in the allowed
+     list at all.** The repo's `CORS` const explicitly includes `POST`.
+   - `GET /search?q=pebble` works fine and returns real course data — the course
+     search proxy is unaffected, only the sync routes are missing.
+
+   **Practical impact:** cloud login/sync has likely never worked in production,
+   possibly since the May 11 feature shipped (the dashboard deploy step in
+   `CLAUDE.md`/`SETUP.md` — "paste `golf_proxy_worker.js` into the editor and Save &
+   Deploy" — was evidently never done after that commit, or was reverted). Traced
+   what a real user experiences: `cloudLoad()`'s `r.json()` on the 404's plain-text
+   body throws a `SyntaxError`; `doLogin()`'s catch-all doesn't match that message
+   against `'No profile found'` or `'Incorrect PIN'`, so it falls into the generic
+   branch and signs the user in **local-only** with **"Signed in (cloud offline —
+   will sync when reconnected)."** — this does NOT crash and does NOT lose data, but
+   it is **permanently misleading**: it reads as a transient outage ("will sync when
+   reconnected") when the real state is that sync has never been deployed at all.
+   Every "new user" signup's best-effort `cloudSave()` push silently fails the same
+   way (swallowed in a bare `catch(e){}`), so no profile has ever actually reached
+   the `GOLF_SYNC` KV store via this Worker. Multi-device sync — a documented,
+   supposedly-shipped feature — is not currently functional for anyone.
+
+   **Not fixed here** — Phase 6 is test-only, and this isn't a code fix in this repo
+   anyway: `golf_proxy_worker.js` in the repo already has the correct code. The fix
+   is **Ross redeploying it** via the Cloudflare dashboard (Worker editor → paste
+   current `golf_proxy_worker.js` → Save & Deploy), per `SETUP.md`. Worth
+   double-checking the `GOLF_SYNC` KV binding is still attached after redeploy too,
+   since that's a separate manual step from the code deploy itself.
+
+### Summary
+
+7 of 8 checklist items pass outright. Item 8 surfaced a real, currently-live
+production gap that has nothing to do with any code in this repo being wrong — the
+repo's Worker source is correct; it's simply not what's actually deployed. This is
+arguably the single highest-impact finding of the whole 7-phase audit, since it means
+a documented, shipped feature (cross-device profile sync) has silently not worked for
+months with no error surfaced to any user.
+
+---
+
 ## Known Issues — Unresolved (as of Sep 18, 2026)
 
 Not fixed yet, flagged for prioritization:
@@ -526,8 +614,9 @@ Not fixed yet, flagged for prioritization:
 4. **Dots/Junk payout model rewrite has no in-app changelog.** Users comparing rounds
    across the Aug 1 / Aug 13 boundary will see different math for these two bet types
    with no explanation surfaced in the app.
-5. **`_feeSelHtml` closure inside `rResults()`** — repeat of the exact pattern Bug 5
-   fixed in May. Low risk, but a live violation of Critical Coding Rule #2.
+5. ~~**`_feeSelHtml` closure inside `rResults()`**~~ **Resolved Sep 18, 2026 (Phase
+   5).** Extracted to module level as `feeSelHtml`, along with a second
+   previously-unflagged instance (`flowArrow` inside `rFlow()`).
 6. **PWA icons still missing** — `icon-192.png`/`icon-512.png` referenced in
    `manifest.json`, not on disk. Flagged in May, unresolved.
 7. **KV last-write-wins, no conflict resolution** — unresolved since May, untouched in
@@ -537,3 +626,14 @@ Not fixed yet, flagged for prioritization:
    that did this existed but was never wired to a button and was removed as dead code;
    if sign-out/switch-profile is wanted, it needs to be built (and wired), not restored
    as-is.
+9. **Live Cloudflare Worker doesn't match `golf_proxy_worker.js` — cloud sync has
+   never worked in production.** Discovered Sep 18, 2026 (Phase 6), tested against
+   the real deployed Worker: `/sync/save` → 405, `/sync/load` → 404, `/health` has no
+   `sync` field, CORS preflight allows only `GET, OPTIONS` (no `POST`). The repo's
+   Worker source has had these routes since May 11, 2026 — the dashboard deployment
+   was evidently never updated after that commit. Users signing in believe they're
+   getting cross-device sync (the app shows "cloud offline — will sync when
+   reconnected," which reads as transient) but no profile has ever actually reached
+   the `GOLF_SYNC` KV store through this Worker. **Highest-priority item on this
+   list** — fix is a Cloudflare dashboard redeploy (Ross-only, not a code change),
+   see the Phase 6 write-up above for exact steps.
