@@ -104,7 +104,7 @@ var BT={
   nassau:{on:false,h2h:true,teams:false,mus:[{p1:0,p2:1,front:5,back:5,tot:10}],tmus:[]},
   match:{on:false,mus:[{p1:0,p2:1,stake:10}]},
   wolf:{on:false,stake:2},s666:{on:false,stake:5},s531:{on:false,stake:1},
-  p3c:{on:false,birdie:10,par:5,bogey:5},dots:{on:false,val:1,fwy:1},
+  p3c:{on:false,birdie:10,par:5,bogey:5,carry:false},dots:{on:false,val:1,fwy:1},
   junk:{on:false,val:2,greenie:2}
 };
 var WD=Array(18).fill(0).map(function(){return{dec:null};});
@@ -510,17 +510,40 @@ function s531Calc(){
   for(var x=0;x<a.length-1;x++)for(var y=x+1;y<a.length;y++){var di=pts[a[x]]-pts[a[y]];r[a[x]]+=di*sk;r[a[y]]-=di*sk;}
   return r;
 }
+function p3cCarryMap(){
+  // {hi: multiplier} for every par-3 hole - the stake multiplier that hole applies
+  // if/when it resolves a Par 3 Clock payout (1 = no carry-in). When BT.p3c.carry
+  // is off this is always 1 for every hole, so p3cCalc()'s math is byte-identical
+  // to the pre-carry behavior. A hole only ever ADDS to the carry when nobody is
+  // on the clock there (cp==null) - an unresolved hole (cp set, score not in yet)
+  // leaves the running carry untouched, and any hole that actually resolves a
+  // payout event (cp set + score in, whatever the outcome) resets it to 0. Shared
+  // by p3cCalc() and the Dots/Junk tab's live "carries Nx" display so the number
+  // shown while scoring always matches what actually gets paid.
+  var m={},carry=0;
+  C.forEach(function(hole,hi){
+    if(hole.par!==3)return;
+    m[hi]=BT.p3c.carry?carry+1:1;
+    var cp=P3C[hi].cp;
+    if(cp==null||!P[cp]||!P[cp].on){if(BT.p3c.carry)carry++;return;}
+    var g=parseInt(GR[cp][hi]);
+    if(isNaN(g))return;
+    carry=0;
+  });
+  return m;
+}
 function p3cCalc(){
   if(!BT.p3c.on)return null;
   var a=ais(),r={};a.forEach(function(i){r[i]=0;});
+  var mm=p3cCarryMap();
   C.forEach(function(hole,hi){
     if(hole.par!==3)return;var cp=P3C[hi].cp,tp=P3C[hi].tp;
     if(cp==null||!P[cp]||!P[cp].on)return;
     var g=parseInt(GR[cp][hi]);if(isNaN(g))return;
-    var diff=g-hole.par,others=a.filter(function(i){return i!==cp;}),n=others.length;
-    if(diff<=-1){var a2=+BT.p3c.birdie;r[cp]+=a2*n;others.forEach(function(i){r[i]-=a2;});}
-    else if(diff===0){var b2=+BT.p3c.par;r[cp]+=b2*n;others.forEach(function(i){r[i]-=b2;});}
-    else if(diff>=1&&tp){var c2=+BT.p3c.bogey;r[cp]-=c2*n;others.forEach(function(i){r[i]+=c2;});}
+    var mult=mm[hi],diff=g-hole.par,others=a.filter(function(i){return i!==cp;}),n=others.length;
+    if(diff<=-1){var a2=+BT.p3c.birdie*mult;r[cp]+=a2*n;others.forEach(function(i){r[i]-=a2;});}
+    else if(diff===0){var b2=+BT.p3c.par*mult;r[cp]+=b2*n;others.forEach(function(i){r[i]-=b2;});}
+    else if(diff>=1&&tp){var c2=+BT.p3c.bogey*mult;r[cp]-=c2*n;others.forEach(function(i){r[i]+=c2;});}
   });
   return r;
 }
@@ -1478,7 +1501,9 @@ function rSetup(){
   // Par 3 Clock
   h+='<div class="card"><div class="ct">Par 3 Clock <button class="tog '+(BT.p3c.on?'on':'off')+'" onclick="togBet(\'p3c\')">'+(BT.p3c.on?'ON':'OFF')+'</button></div>';
   h+='<div style="font-size:10px;color:#4a7050;margin:-4px 0 10px">Closest to the pin on par 3s collects a set amount from every other player; 3-putt means you pay instead.</div>';
-  if(BT.p3c.on)h+='<div class="row">'+[['birdie','Birdie $'],['par','Par $'],['bogey','3-Putt Bogey $']].map(function(p){return'<div><div class="lbl">'+p[1]+'</div><input type="number" min="0" style="width:78px" value="'+BT.p3c[p[0]]+'" onchange="BT.p3c.'+p[0]+'=+this.value"></div>';}).join('')+'</div><div class="info">Closest to pin on the green = on the clock. Amounts are paid to/from EACH other player (e.g. 3-putt bogey = you owe every other player the bogey amount). Track in Dots/Junk tab.</div>';
+  if(BT.p3c.on)h+='<div class="row">'+[['birdie','Birdie $'],['par','Par $'],['bogey','3-Putt Bogey $']].map(function(p){return'<div><div class="lbl">'+p[1]+'</div><input type="number" min="0" style="width:78px" value="'+BT.p3c[p[0]]+'" onchange="BT.p3c.'+p[0]+'=+this.value"></div>';}).join('')+'</div>'
+    +'<div style="padding:6px 0 2px"><label style="font-size:11px;color:#7acc90;cursor:pointer"><input type="checkbox"'+(BT.p3c.carry?' checked':'')+' onchange="BT.p3c.carry=this.checked;render()" style="margin-right:5px">Carry over stakes when nobody\'s on the clock</label></div>'
+    +'<div class="info">Closest to pin on the green = on the clock. Amounts are paid to/from EACH other player (e.g. 3-putt bogey = you owe every other player the bogey amount).'+(BT.p3c.carry?' Carry-over is ON: a par 3 with nobody on the clock rolls its stake into the next par 3 that has someone on the clock, as far forward as needed - birdie/par/3-putt bogey amounts multiply by how many holes carried in (2 carried holes = 3x stakes). If nobody\'s ever back on the clock, the carried stake is simply never paid.':' Carry-over is OFF: each par 3 is scored on its own - a hole with nobody on the clock just pays nothing for that hole.')+' Track in Dots/Junk tab.</div>';
   h+='</div>';
 
   // Dots
@@ -1648,15 +1673,18 @@ function rExtras(){
     h+='</tbody></table></div></div>';
   }
   if(BT.p3c.on){
+    var p3cm=BT.p3c.carry?p3cCarryMap():null;
     h+='<div class="card"><div class="ct">Par 3 Clock</div>';
-    h+='<div style="font-size:10px;color:#4a7050;margin-bottom:12px">Select who is closest to the pin (ball on the green) = on the clock.</div>';
+    h+='<div style="font-size:10px;color:#4a7050;margin-bottom:12px">Select who is closest to the pin (ball on the green) = on the clock.'+(BT.p3c.carry?' Carry-over is ON — a hole with nobody on the clock rolls its stake into the next one that has someone on it.':'')+'</div>';
     C.forEach(function(hole,hi){
       if(hole.par!==3)return;var pc=P3C[hi],g=pc.cp!=null?parseInt(GR[pc.cp][hi]):NaN,diff=!isNaN(g)?g-hole.par:null;
       var rs=diff!=null?(diff<=-1?'<span style="color:#ff3030">birdie+ ✓</span>':diff===0?'<span style="color:#60e030">par ✓</span>':'<span style="color:#30aaff">over par</span>'):'';
-      h+='<div class="mu"><div style="font-weight:700;color:#c9991e;margin-bottom:8px">Hole '+hole.n+'</div><div class="row" style="margin-bottom:0"><div><div class="lbl">On the Clock</div><select style="width:140px" data-nav="p3c:'+hi+':0" onkeydown="gridTab(event,this)" onchange="setP3Cp('+hi+',+this.value)"><option value="-1"'+(pc.cp==null?' selected':'')+'">— nobody —</option>';
+      var mult=p3cm?p3cm[hi]:1;
+      h+='<div class="mu"><div style="font-weight:700;color:#c9991e;margin-bottom:8px">Hole '+hole.n+(mult>1?' <span style="font-size:10px;color:#ff9040;font-weight:400">— carries '+mult+'x</span>':'')+'</div><div class="row" style="margin-bottom:0"><div><div class="lbl">On the Clock</div><select style="width:140px" data-nav="p3c:'+hi+':0" onkeydown="gridTab(event,this)" onchange="setP3Cp('+hi+',+this.value)"><option value="-1"'+(pc.cp==null?' selected':'')+'">— nobody —</option>';
       a.forEach(function(i){h+='<option value="'+i+'"'+(pc.cp===i?' selected':'')+'>'+pn(i)+'</option>';});
       h+='</select></div>';
       if(pc.cp!=null){h+='<div style="padding-bottom:7px"><label style="font-size:11px;color:#7acc90;cursor:pointer"><input type="checkbox" data-nav="p3c:'+hi+':1" onkeydown="gridTab(event,this)"'+(pc.tp?' checked':'')+' onchange="setP3Ctp('+hi+',this.checked)" style="margin-right:5px">3-putt bogey?</label></div>';if(!isNaN(g))h+='<div style="font-size:11px;color:#c9991e;padding-bottom:6px">Gross: '+g+' ('+rs+')</div>';}
+      if(pc.cp==null&&BT.p3c.carry)h+='<div style="font-size:11px;color:#4a7050;padding-bottom:6px">Nobody on the clock — this hole\'s stake carries forward.</div>';
       h+='</div></div>';
     });
     h+='</div>';
