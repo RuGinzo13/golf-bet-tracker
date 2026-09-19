@@ -24,6 +24,14 @@ phase N" — the numbering below is unambiguous).
    data), plus the `deploy.sh` staging gap. Found and fix verified against
    real live API data Sep 19, 2026 — see errors.md.
 
+## Utilities (not numbered — run any time)
+
+- `SYNC_push_pending_commits.md` — pushes commits a Cowork/remote-devices
+  bridge session made locally but couldn't push itself (that session has no
+  persistent git credential — see CLAUDE.md, "Where Code Changes Actually
+  Get Committed and Pushed"). Run this any time that session says it
+  committed something and hands off to you.
+
 Phases 3, 4, and 6 are deliberately audit-only — they stop and report
 before anything gets changed, since a couple of these (calculation math
 in particular) touch real money numbers and shouldn't get an autofix

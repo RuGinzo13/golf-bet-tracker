@@ -38,6 +38,61 @@ workflow will show as failed in the Actions tab, which is expected and harmless.
 
 ---
 
+## Where Code Changes Actually Get Committed and Pushed — Read This Before Editing Anything
+
+**Decided Sep 19-20, 2026, after repeated push failures — see errors.md and
+MEMORY.md for the incident history.** There are two different Claude
+environments that touch this repo, and they are not equally capable:
+
+- **Local Claude Code (VS Code, on Ross's Mac)** — has real, persistent
+  GitHub push access via the Mac's own credential store (Keychain or `gh`).
+  This is the ONLY environment that can be relied on to push.
+- **The Cowork / remote-devices bridge session** (reached from claude.ai,
+  works on the same repo folder via a device bridge) — runs its shell
+  commands inside an isolated, ephemeral Linux sandbox that is NOT the Mac.
+  It can read, search, and edit files in the connected folder, and it CAN
+  commit locally (regular `git commit` just writes to the local `.git`,
+  which lives in the shared folder). **It cannot push reliably.** Its git
+  credential lives in the sandbox's own home directory, which does not
+  persist between sessions — even when a credential was set up and working
+  earlier in the same conversation, a later message in that same
+  conversation can find it gone, because the sandbox got recycled. This is
+  not a one-off bug to keep re-fixing; it is how the platform is built, and
+  no in-session fix should be expected to stick.
+
+**The rule this leads to:**
+
+1. **For anything that needs to ship — a code fix, a `deploy.sh`/Worker
+   change, anything touching `golf_bet_tracker.html` or
+   `golf_proxy_worker.js`** — the Cowork bridge session's job is to
+   research, reproduce, and write a self-contained phase file in `phases/`
+   (matching the existing `PHASE_N_*.md` format: exact before/after code,
+   a verification step, nothing left for the reader to guess). Ross then
+   runs that phase entirely in local Claude Code, which does the fix,
+   verification, commit, AND push in one pass, in the one environment
+   that can actually complete all four steps without a handoff.
+2. **If the Cowork bridge session already edited files and committed
+   locally anyway** (acceptable when the investigation naturally produces
+   working, verified code — as happened with the Sep 19 Nassau/Match Play
+   fix), it must say so plainly and stop there — commit only, never attempt
+   `git push` from the bridge. The next step is always the same one-line
+   ask: run `phases/SYNC_push_pending_commits.md` (see phases/README.md) in
+   local Claude Code, which checks what's sitting locally ahead of
+   `origin/main` and pushes it.
+3. **Never re-embed a credential in the repo to work around this** (that's
+   the exact mistake `errors.md`'s Sep 19 "Git Credential Stored in
+   Plaintext" entry already covers) — moving the problem into the shared
+   `.git/config` just re-creates a security issue to fix a convenience one.
+
+Running two environments on the same fix at once (Cowork bridge implementing
+something while local Claude Code is also active) has already caused real
+confusion once — see errors.md's Phase 9 entry, where a parallel session's
+phase file went stale mid-write because it didn't know about a fix another
+session had already pushed. Default to one environment finishing a given
+piece of work before the other starts on it.
+
+---
+
 ## File Structure
 
 ```

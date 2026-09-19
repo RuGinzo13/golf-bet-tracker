@@ -373,3 +373,59 @@ per player across the whole round.
 **Not yet committed/pushed** — see errors.md for the full write-up and
 verification detail. Confirm with Ross before shipping, per standing
 practice for real-money-math changes.
+
+
+---
+
+## Decided: Division of Labor — Cowork Bridge Writes/Commits, Local Claude Code Pushes (Sep 19-20, 2026)
+
+**Context:** Third recurring failure of the Cowork/remote-devices bridge session
+trying to `git push` directly. Root cause confirmed structural, not a one-off bug:
+the bridge's shell runs in an isolated, ephemeral Linux sandbox (not Ross's actual
+Mac, despite reading/writing the same connected folder), and that sandbox's git
+credential store does not persist reliably — even a credential configured earlier
+in the same conversation can be gone by a later turn because the sandbox instance
+itself gets recycled. This is the third time this exact failure mode has produced
+different-looking symptoms (invalid token, then "could not read Username / No such
+device or address") from what is really the same underlying cause.
+
+**What didn't work:** Treating each push failure as a one-off to patch (rotate the
+token, reset global git config, try again). Each fix held only until the sandbox
+recycled, then failed again the same way. Ross explicitly asked for a structural
+fix rather than another in-session patch: "you need to rewrite the proper
+procedures for this project so i don't have to push throuhg you and commit through
+code."
+
+**What worked:** Stopped treating this as a credential bug and wrote it into
+CLAUDE.md as a standing architecture rule (new section: "Where Code Changes
+Actually Get Committed and Pushed"):
+1. For anything that needs to ship, the Cowork bridge's job is to research,
+   reproduce, and write a self-contained phase file in `phases/` — not to push it
+   itself. Ross runs that phase in local Claude Code (real, persistent GitHub
+   credentials via the Mac's own credential store), which does fix + verify +
+   commit + push in one pass.
+2. If the bridge session already made verified local commits (acceptable — e.g.
+   the Sep 19 Nassau/Match Play fix, commit `37977b6`, came directly out of a real
+   investigation), it stops at commit and says so plainly — never attempts `git
+   push` from the bridge.
+3. Never re-embed a credential in the shared repo-local `.git/config` to work
+   around this — that recreates the exact plaintext-token exposure already fixed
+   this session (see errors.md, "Git Credential Stored in Plaintext").
+Also created `phases/SYNC_push_pending_commits.md` — a reusable, non-numbered
+utility phase Ross can invoke any time the bridge leaves local commits unpushed. It
+checks `git log origin/main..HEAD`, has Ross's local Claude Code read every pending
+commit's diff before pushing (not a blind push), confirms the working tree is
+otherwise clean, pushes, then verifies `main` and `origin/main` match and spot-checks
+the live site when HTML changed.
+
+**Rejected alternative:** Trying yet again to make the bridge's git credential
+persist (longer-lived token, different storage location, etc.). Rejected because the
+underlying cause — the sandbox itself being ephemeral/recycled, not just the
+credential file — means no in-session credential fix is expected to survive across
+turns. Fixing the symptom again would just be the fourth patch on the same
+structural problem.
+
+**Note for next time:** when the same class of failure recurs three times with
+different surface symptoms, stop patching the symptom and look for the shared root
+cause — here, "which environment is actually running this command" was the
+question that mattered, not "which credential is currently wrong."
