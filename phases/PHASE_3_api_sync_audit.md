@@ -1,5 +1,14 @@
 # Phase 3 — API & Sync Staleness Audit
 
+**Status: COMPLETED Sep 18, 2026.** Findings are logged in errors.md under
+"API & Sync Audit — September 18, 2026 (Phase 3, audit-only — no fixes
+applied)". Item 4's finding (the Worker/KV drift) turned out to be far bigger
+than a stale doc line — see errors.md Known Issues #9 and
+`phases/PHASE_8_worker_ci_deploy.md` for the full story and the fix. This file
+is kept as-is below for the record of what was asked and how it was scoped.
+
+---
+
 Run only after Phase 2 is committed. This phase is audit-only — no fixes
 without explicit sign-off, per the instructions below.
 

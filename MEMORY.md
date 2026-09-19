@@ -216,3 +216,27 @@ version in summary.md's Sep 18 Feature Log entry.
   original 7-phase decision was concerned about, since Phase 4 came back clean.
 - No roadmap work (claim-later, premium gate, Supabase rebuild) started — this
   audit was explicitly meant to happen before that, not instead of it.
+
+---
+
+## September 19, 2026 — Decided: Worker deploy moves to CI (GitHub Actions), not a one-time manual redeploy
+
+**What was decided:** Instead of just redeploying `golf_proxy_worker.js` once
+via the Cloudflare dashboard to fix the Phase 6 finding, built a permanent
+CI/CD pipeline (`wrangler.toml` + `.github/workflows/deploy-worker.yml`) that
+auto-deploys the Worker on every push to `main` that touches it. Requires
+Ross to do two one-time setup steps (Cloudflare API token + 2 GitHub secrets)
+before it activates — see errors.md Known Issues #9 / phases/PHASE_8.
+**Why:** The root cause of the 4-month silent outage wasn't a missed deploy,
+it was that deploy required a human to remember a manual dashboard step with
+zero enforcement and zero drift detection. A one-time fix leaves the same
+failure mode in place for the next Worker change. Riding the existing
+`git push` habit (already used by `deploy.sh` for the frontend) means the
+Worker can't silently diverge from the repo again — there's no new habit to
+build, just one that already exists doing double duty.
+**What was rejected:** A one-time manual dashboard redeploy (fixes the
+symptom, not the cause — same drift can recur). A local `deploy-worker.sh`
+wrapper around Wrangler (still depends on a human remembering to run it,
+same failure class as the dashboard, just with a nicer command). Asking the
+Cloudflare MCP connector to do it directly — confirmed it has no deploy tool
+in its surface, not a matter of trying harder.

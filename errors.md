@@ -626,18 +626,123 @@ Not fixed yet, flagged for prioritization:
    that did this existed but was never wired to a button and was removed as dead code;
    if sign-out/switch-profile is wanted, it needs to be built (and wired), not restored
    as-is.
-9. **Live Cloudflare Worker doesn't match `golf_proxy_worker.js` — cloud sync has
-   never worked in production.** Discovered Sep 18, 2026 (Phase 6), tested against
-   the real deployed Worker: `/sync/save` → 405, `/sync/load` → 404, `/health` has no
-   `sync` field, CORS preflight allows only `GET, OPTIONS` (no `POST`). The repo's
-   Worker source has had these routes since May 11, 2026 — the dashboard deployment
-   was evidently never updated after that commit. Users signing in believe they're
-   getting cross-device sync (the app shows "cloud offline — will sync when
-   reconnected," which reads as transient) but no profile has ever actually reached
-   the `GOLF_SYNC` KV store through this Worker. **Highest-priority item on this
-   list.** Checked this session whether Claude Code could redeploy it directly —
-   no: no `wrangler` CLI or Cloudflare API token in this environment, and the
-   Cloudflare Developer Platform connector needs an OAuth authorization that can't
-   be completed in a non-interactive session. **Fix requires Ross** — a Cloudflare
-   dashboard redeploy (Ross-only, not a code change),
-   see the Phase 6 write-up above for exact steps.
+9. ~~**Live Cloudflare Worker doesn't match `golf_proxy_worker.js` — cloud sync has
+   never worked in production.**~~ **Pipeline built Sep 19, 2026 (see CRITICAL entry
+   and Phase 8 below) — awaiting Ross's one-time Cloudflare API token + GitHub
+   secrets setup to actually fire.** Originally discovered Sep 18, 2026 (Phase 6):
+   `/sync/save` → 405, `/sync/load` → 404, `/health` has no `sync` field, CORS
+   preflight allows only `GET, OPTIONS`. Root cause was that Worker deployment was
+   100% manual (Cloudflare dashboard copy-paste per SETUP.md) with nothing enforcing
+   it ever happened — the code shipped in the repo May 11 and the dashboard was
+   simply never updated to match, silently, for over 4 months, with the app masking
+   it as "cloud offline — will sync when reconnected." Fix is no longer "redeploy
+   once" — it's "redeploy is now automatic on every push," via
+   `.github/workflows/deploy-worker.yml` + `wrangler.toml`, so this class of drift
+   cannot recur. See the Phase 8 entry below for the two remaining manual steps
+   (Ross-only — cannot be done by Claude via any available tool).
+
+---
+
+## CRITICAL — September 19, 2026 — Deployed Worker Is Not the Local Worker
+
+Discovered by connecting Cloudflare's own MCP connector and reading the live Worker
+directly, rather than assuming the dashboard matched the local file.
+
+**What didn't work:** Assumed `golf_proxy_worker.js` on disk was what's actually running
+at https://golf-proxy.rmg-1313.workers.dev, because summary.md's Feature Log says cloud
+login was "shipped" May 11. It was written and works locally, but was never deployed.
+
+**What was actually found:**
+- The live `golf-proxy` Worker was last modified **April 26, 2026** — the day of the
+  original course-search-only proxy. It has never been touched since.
+- The deployed code has no `/sync/save`, no `/sync/load`, no KV usage at all — it only
+  handles `/search`, `/course/:id`, and `/health`, and only allows GET (CORS
+  `Access-Control-Allow-Methods: GET, OPTIONS` — no POST). Any `/sync/save` POST from
+  the app 404s against this code.
+- The Cloudflare account has **zero KV namespaces** — `GOLF_SYNC` was never created,
+  let alone bound. Consistent with the deployed code never needing it.
+- Net effect: every cross-device login / cloud sync attempt against the real deployed
+  backend since May has been silently failing and falling back to local-only storage
+  (the client's own error handling: "Network/worker error: fall back to local-only").
+  The feature has never worked in production, only in whatever environment it was
+  built and tested in.
+
+**What worked:** Created the `GOLF_SYNC` KV namespace via the Cloudflare MCP connector
+(id `8698ae17677f4f08baa9ef1a1ed9a589`) so it exists and is ready to bind. That
+connector can list/inspect Workers and manage KV/D1/R2 resources, but has **no tool to
+push Worker script code or attach a binding** — actual deployment still requires
+Wrangler CLI or the dashboard. See PHASE_3 for the redeploy steps.
+
+**Note for next time:** "It's in the feature log as shipped" and "it's actually running
+in production" are two different claims. Verify a backend change reached the actual
+deployed service before writing it up as done — a local file matching intent is not
+evidence of a live deploy.
+
+---
+
+## Session Summary, September 19, 2026 — Cloudflare Worker CI/CD Redeploy Pipeline (Phase 8)
+
+Ross asked how to redeploy the stale Worker (found Sep 18, Phase 6) and, critically,
+how to make sure it never silently goes stale again — and whether the Cloudflare MCP
+connector could just do it directly.
+
+**What didn't work:** Assuming the Cloudflare Developer Platform connector could push
+Worker code. Checked directly this session: `workers_list`, `workers_get_worker`,
+`workers_get_worker_code`, and the KV/D1/R2 tools are all read/resource-management
+only (confirmed by reading every tool in the connector's surface). There is no
+`workers_deploy` or equivalent — the connector can inspect and confirm drift, and
+manage KV/D1/R2 as resources, but cannot push script code or attach a binding to a
+Worker. This is a hard capability gap, not a permissions issue — reconfirms Sep 18's
+finding rather than contradicting it.
+
+**What worked:** Used the connector for what it CAN do — confirmed via
+`workers_get_worker` that the live `golf-proxy` Worker (account id
+`b8dd155df0654dea955956e9ad70203f`) was last touched April 26, 2026, and via
+`kv_namespaces_list` that the account had zero KV namespaces (fixed Sep 18 by
+creating `GOLF_SYNC`, id `8698ae17677f4f08baa9ef1a1ed9a589`). Then, instead of a
+one-time manual redeploy (which is exactly the process that already failed silently
+once), built a CI pipeline so redeploy is no longer a manual step at all:
+- `wrangler.toml` — declares the Worker name, entry file, and the `GOLF_SYNC` KV
+  binding, so `wrangler deploy` (run by CI) produces a Worker that has the binding
+  attached automatically. No more "redeploy the code" and "bind the KV" as two
+  separate manual dashboard steps that can drift apart.
+- `.github/workflows/deploy-worker.yml` — runs `wrangler deploy` via Cloudflare's
+  official `wrangler-action` on every push to `main` that touches
+  `golf_proxy_worker.js` or `wrangler.toml`, plus a manual `workflow_dispatch`
+  trigger. Since `deploy.sh` already pushes to `main` for every HTML change, the
+  Worker now rides the same commit/push habit that already exists — there's no new
+  process for Ross to remember, just the existing `./deploy.sh` habit (or any push)
+  now also keeping the backend honest.
+
+**Note for next time:** the original failure mode wasn't "nobody redeployed it" —
+it's "the *only* way to deploy it required a human to remember a manual dashboard
+step with no enforcement and no drift detection." Any infra that depends on someone
+remembering a manual step will eventually silently drift, exactly like this did for
+4 months with zero errors surfaced to anyone. The fix for "make sure X doesn't happen
+again" is almost never "be more careful next time" — it's "make the failure
+structurally impossible," which here means: deploy triggered by the same action
+(git push) that already happens for every other change, not a second action nobody
+has a habit of doing.
+
+**Two steps only Ross can do — nothing else blocks this from working:**
+1. Cloudflare dashboard → My Profile → API Tokens → Create Token → template "Edit
+   Cloudflare Workers" (scoped to this account) → copy the token. Claude cannot
+   create this: it requires an interactive Cloudflare OAuth/login flow this
+   environment cannot complete.
+2. GitHub repo (`RuGinzo13/golf-bet-tracker`) → Settings → Secrets and variables →
+   Actions → New repository secret, twice:
+   - `CLOUDFLARE_API_TOKEN` = the token from step 1
+   - `CLOUDFLARE_ACCOUNT_ID` = `b8dd155df0654dea955956e9ad70203f`
+   Claude cannot create GitHub Actions secrets from this session — no available tool
+   writes repo secrets (the git remote's push token is not sufficient/appropriate to
+   reuse for this, and doing so wasn't attempted).
+
+Once both secrets exist, the next push to `main` (or a manual run from the Actions
+tab) deploys the Worker for real, for the first time since April. **Also worth
+checking after the first real deploy:** confirm the `GCAPI_KEY` secret is still set
+on the Worker (Cloudflare Settings → Variables and Secrets) — Worker secrets are
+independent of code deploys and should survive, but this hasn't been verified live
+since the account showed zero KV namespaces despite the Worker apparently having
+run since April, so nothing about this Worker's config should be assumed intact
+without checking.
+

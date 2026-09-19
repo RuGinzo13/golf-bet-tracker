@@ -26,8 +26,15 @@ Backend: https://golf-proxy.rmg-1313.workers.dev (Cloudflare Worker)
 ```
 
 Copies `golf_bet_tracker.html` → `index.html`, commits, pushes to GitHub Pages.
-The Cloudflare Worker (`golf_proxy_worker.js`) is deployed separately via the
-Cloudflare dashboard — paste into editor, Save & Deploy.
+
+**As of Sep 19, 2026, the Cloudflare Worker deploys itself.** Any push to `main`
+that touches `golf_proxy_worker.js` or `wrangler.toml` triggers
+`.github/workflows/deploy-worker.yml`, which runs `wrangler deploy` in CI. There is
+no manual dashboard step anymore — that manual step is exactly what let the live
+Worker silently diverge from this repo for 4+ months (see errors.md Known Issues
+#9). Requires `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` GitHub repo secrets,
+which only Ross can create (see errors.md Phase 8 entry) — until those exist, the
+workflow will show as failed in the Actions tab, which is expected and harmless.
 
 ---
 
@@ -46,8 +53,12 @@ GolfBetting/
 ├── sw.js                      # Service worker (cache-first)
 ├── icon.svg                   # PWA icon
 ├── golf_proxy_worker.js       # Cloudflare Worker source
-├── SETUP.md                   # Cloudflare Worker setup walkthrough
-└── deploy.sh                  # One-command deploy
+├── wrangler.toml              # Worker deploy config + KV binding (added Sep 19 2026)
+├── .github/workflows/
+│   └── deploy-worker.yml      # Auto-deploys the Worker to Cloudflare on push (added Sep 19 2026)
+├── SETUP.md                   # Original manual Worker setup — superseded by CI, kept for reference
+├── phases/                    # 7(+1)-phase audit instruction files — see phases/README.md
+└── deploy.sh                  # One-command frontend deploy
 ```
 
 **`golf_bet_tracker.html` is the only file that contains app logic.**
@@ -160,11 +171,14 @@ Before every change, follow these steps:
 
 - **Live Cloudflare Worker does not match `golf_proxy_worker.js` in this repo —
   cloud sync is non-functional in production.** Found Sep 18 2026 (7-phase audit,
-  Phase 6): the deployed Worker predates the `/sync/save`/`/sync/load` routes added
-  May 11 2026 — every login silently falls back to local-only with a misleading
-  "will sync when reconnected" message. Fix is a Cloudflare dashboard redeploy
-  (Ross-only — Claude Code has no `wrangler`/API-token/connector path to do this).
-  See errors.md Known Issues #9 for the full evidence and redeploy steps.
+  Phase 6). Root cause: Worker deploy was a manual dashboard copy-paste with nothing
+  enforcing it happened — it silently never ran after the May 11 2026 commit that
+  added `/sync/save`/`/sync/load`. **Fixed structurally Sep 19 2026** — Worker now
+  deploys via GitHub Actions (`wrangler deploy`) on every push touching
+  `golf_proxy_worker.js`, so it rides the same push habit `deploy.sh` already uses
+  and cannot drift silently again. Not yet LIVE — needs Ross to create a Cloudflare
+  API token and add it + the account ID as GitHub repo secrets (2 steps, cannot be
+  done by Claude from any available tool). See errors.md Known Issues #9 / Phase 8.
 - Single file at 2,130 lines (Sep 18 2026, up from ~1,800 in May) — no module system.
   Use consistent comment headers (`// ── Section name ──`) and never define closures
   inside render functions.
@@ -172,9 +186,10 @@ Before every change, follow these steps:
   on two devices.
 - PWA icons: `manifest.json` references `icon-192.png` and `icon-512.png` but only
   `icon.svg` exists. Rasterized PNGs not yet generated (still true Sep 18 2026).
-- KV namespace `GOLF_SYNC` must be manually bound in Cloudflare dashboard before
-  cloud sync works (separate from the redeploy above — check both after redeploying).
-  App degrades gracefully to local-only if not configured.
+- KV namespace `GOLF_SYNC` exists (created Sep 18 2026) and is declared as a binding
+  in `wrangler.toml`, so the CI deploy (above) attaches it automatically — no
+  separate manual binding step needed once the CI pipeline is actually running.
+  App degrades gracefully to local-only if the binding is ever missing.
 - `migrateRecentRounds()` only re-scores rounds saved in the last 7 days when a bet
   rule changes; older rounds are frozen on whatever math they were originally scored
   with, permanently, with no manual recompute option.
