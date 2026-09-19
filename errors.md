@@ -875,3 +875,100 @@ fallback that looks like a safe default but silently produces the wrong branch u
 a real, common input shape. Worth grepping for other `X||await fetch(...)` or
 `cached ? ... : []` patterns in this file for the same mistake.
 
+**RESOLVED Sep 19, 2026 (Phase 9) — full fix, verified against real data.** A
+separate session wrote `phases/PHASE_9_course_search_fix.md` covering this same bug
+in more depth, without being aware the caching fix above had already landed and
+been pushed — its "before" code block for that specific fix no longer matched the
+file. Caught by checking the actual file before applying anything (Phase 9's own
+Step 0 exists for exactly this reason: verify assumptions against real code, don't
+trust a written description of what the code does). What Phase 9 added that
+genuinely was still missing:
+- **`csSearch()`'s dead cache write removed entirely** — the line that populated
+  `courseCache[id]` from search results, whose promise ("without a second API call")
+  never held for any course (proven above). Now `courseCache` starts empty and only
+  ever gets populated with real, usable detail data.
+- **A second bug in `pickCourse()`'s tee auto-pick, fixed:** the old loop
+  (`src.forEach` over all tees, last substring match wins) had no ranking and no
+  exclusion for combo tees — it could silently auto-select something like "White/
+  Green Combo" over a real single "White" tee. Replaced with a priority-ordered
+  `for` loop over `prefer` that explicitly skips any tee whose name contains
+  "combo".
+- **`deploy.sh` fixed** to `git add golf_bet_tracker.html index.html` instead of
+  just `index.html` — closes the exact staging gap `summary.md`'s Deployment
+  section had been flagging as a known, unfixed issue.
+- **Verified end-to-end against live Pebble Beach data** (id `3j4b4ar8`), using the
+  actual patched functions copied verbatim, not reimplemented: confirmed the real
+  `apiFetch` call happens (count ≥1, not short-circuited), the auto-picked tee
+  ("White") does not contain "Combo", and all 18 holes' `par`/`handicap` in the
+  resulting `C[]` match the raw API response exactly (0 mismatches, cross-checked
+  independently). A second pick of the same course then correctly hit a real cache
+  with zero additional fetches — the caching optimization the original code
+  promised now actually works, just correctly (only after the first real fetch,
+  which is the earliest it structurally can).
+**Note for next time:** when picking up a phase file another session wrote, treat
+its description of "current" code as a claim to verify, not a given — same rule as
+recommending anything from memory. A phase file can go stale exactly like a memory
+record can.
+
+---
+
+## Session Summary, September 19, 2026 (cont'd) — Git Credential Stored in Plaintext, Partially Fixed Remotely
+
+**What didn't work:** This repo's `.git/config` had a GitHub token embedded
+directly in the remote URL (`https://RuGinzo13:gho_...@github.com/RuGinzo13/
+golf-bet-tracker.git`) instead of being handled by a credential helper. This
+was discovered while confirming git push access worked at all (it did — the
+embedded token authenticated fine on a `git push --dry-run`). A token sitting
+in plaintext inside a file that lives in the project folder is a real
+exposure: anyone who reads `.git/config` (a folder backup, a zip of the
+project, a screen share) gets push access to the repo, no separate
+credential needed.
+
+**What worked (partial — only covers the remote-devices bridge session,
+not Ross's own Mac terminal/VS Code):**
+- Stripped the token out of the remote URL: `git remote set-url origin
+  https://github.com/RuGinzo13/golf-bet-tracker.git`. Confirmed `git remote
+  -v` and `.git/config` now show a bare URL with no credential in it.
+- First attempt at fixing storage set `credential.helper = store
+  --file=...` at the REPO level (`git config credential.helper ...` with no
+  `--global`) — this was wrong, caught immediately: repo-local config lives
+  in the shared `.git/config` file that both this remote session and Ross's
+  real Mac read, but the file path pointed at was specific to this remote
+  session's own sandboxed filesystem (`/sessions/.../`.), meaningless on the
+  real Mac. Corrected by unsetting it locally (`git config --unset
+  credential.helper`) and setting it at `--global` scope instead, scoped to
+  this remote session's own git config, not the shared repo file. Verified
+  `.git/config` is clean (no `[credential]` block, no token) after the
+  correction, and `git push --dry-run` still succeeds via the global store.
+- **This only fixes credential storage for git operations run through this
+  remote-devices bridge session.** It does NOT touch whatever git credential
+  setup exists (or doesn't) on Ross's actual Mac, which is the machine that
+  matters — Phase 9 and all real deploys are meant to run via Ross's local
+  Claude Code session in VS Code, on his real Mac, not through this bridge.
+  That machine needs its own fix, added as Phase 9 Step 3a (see
+  `phases/PHASE_9_course_search_fix.md`) since Phase 9 was already open —
+  two options given: `gh auth login` + `gh auth setup-git` (preferred, if
+  the `gh` CLI is installed) or `git config --global credential.helper
+  osxkeychain` plus one interactive push to seed the Keychain entry.
+
+**Note for next time:** a fix applied through the remote-devices bridge only
+verifiably fixes the environment the bridge itself runs in (an isolated
+Linux sandbox with the project folder mounted), not the user's actual local
+machine — even though both read/write the same shared repo files. Anything
+that touches machine-level state outside the repo (credential stores,
+global git config, Keychain) needs to be either done directly on the real
+machine (which this bridge cannot do — no keychain access from a Linux
+sandbox) or handed off as an explicit instruction for the user's real local
+session to run. Don't assume a fix "worked" just because a dry-run succeeded
+from the sandbox; state plainly which environment was actually verified.
+
+**Also flagged, not yet resolved:** the exposed token (a `gho_`-prefixed GitHub
+OAuth token — value deliberately not repeated here; GitHub's push protection
+blocked an earlier commit for containing it in plaintext, which is the right
+outcome) has appeared in a Claude chat transcript, which is a distinct exposure
+surface from the local-file issue above. Recommended Ross revoke it at
+https://github.com/settings/applications (likely an OAuth App token, `gho_`
+prefix suggests a `gh auth login` origin) or
+https://github.com/settings/tokens, and issue a fresh credential via
+whichever setup path (Step 3a) he uses. Not something this session can do
+for him — revoking a token requires his GitHub account action.

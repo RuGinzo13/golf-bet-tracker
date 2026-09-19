@@ -240,3 +240,62 @@ wrapper around Wrangler (still depends on a human remembering to run it,
 same failure class as the dashboard, just with a nicer command). Asking the
 Cloudflare MCP connector to do it directly — confirmed it has no deploy tool
 in its surface, not a matter of trying harder.
+
+
+---
+
+## September 19, 2026 — Decided: Git credential moved off plaintext URL storage
+
+**What was decided:** The repo's git remote URL had a GitHub token embedded
+directly in it (`https://user:token@github.com/...`), stored in plaintext in
+`.git/config`. Fixed the remote-devices bridge session's copy immediately
+(stripped the token from the URL, moved credential storage to that session's
+own global git config instead of the shared repo file). Added Phase 9 Step
+3a instructing Ross's real local machine to do the equivalent fix there —
+`gh auth setup-git` if the GitHub CLI is installed, otherwise `git config
+--global credential.helper osxkeychain` plus one interactive push to seed
+Keychain — since that's the machine that actually runs deploys.
+**Why:** A token sitting in a plaintext file inside the project folder is
+readable by anything that reads the folder — backups, zips, screen shares —
+not just deliberate attackers. Moving it to a credential helper (Keychain or
+gh's own store) keeps the secret out of any file that travels with the
+project. Also recommended revoking the specific exposed token, since it has
+now been displayed in a chat transcript — a different, additional exposure
+surface beyond the original file-storage issue.
+**What was rejected:** Leaving it as-is because "it's a local file, not a
+public commit" (true, but backups/screen-shares/zips of the project folder
+are a real transmission path, and this project has already been burned once
+by treating "not technically public" as "safe enough" — see the GCAPI_KEY
+history). Also rejected: writing the fix only from the remote-devices bridge
+session and calling it done — that session's filesystem is not the same
+machine that runs real deploys, so the fix had to be handed off as an
+explicit instruction for Ross's actual local Claude Code session too.
+
+---
+
+## September 19, 2026 — Decided: Claude now self-maintains MEMORY.md/errors.md without a /close trigger
+
+**What was decided:** The Claude Projects project instructions that used to
+define the MD-maintenance workflow (MEMORY.md/errors.md format, `/close`
+session-log output) were removed by Ross from the project's instructions.
+Going forward, this repo's Claude sessions maintain MEMORY.md, errors.md,
+and CONTEXT_UPDATE.md proactively — reading them before acting, and writing
+entries for decisions/fixes/findings as they happen — without waiting for an
+explicit `/close` command or being told each time to log something.
+**Why:** Ross removing the instruction doesn't mean the need for a running
+decision/error log went away — it's been load-bearing for this project
+since May (the Sep 18 doc catch-up session exists specifically because three
+months went by with zero entries while code kept shipping). Rather than
+silently dropping the practice because the formal trigger disappeared, or
+asking every single session whether to log something, defaulting to "keep
+doing it, in the same format these files already use" avoids a repeat of
+that exact failure mode.
+**What was rejected:** Stopping doc maintenance entirely since it's no
+longer explicitly instructed (this is exactly the kind of manual-habit
+dependency that already failed once for this project — see errors.md's
+"Session Summary, September 18, 2026 — Codebase Catch-Up" and the Worker
+CI/CD entries' broader lesson: don't depend on someone remembering to do a
+thing, make it structural). Also rejected: asking Ross for sign-off on every
+individual doc update going forward — logging findings/decisions as they
+happen is the same class of action as the decisions themselves, not a
+separate thing that needs its own approval each time.

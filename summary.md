@@ -33,18 +33,18 @@ cd "path/to/GolfBetting"
 ./deploy.sh          # copies golf_bet_tracker.html → index.html, commits, pushes
 ```
 
-The Cloudflare Worker must be deployed separately via the Cloudflare dashboard
-(paste `golf_proxy_worker.js` into the editor and Save & Deploy).
+**Resolved Sep 19, 2026 (Phase 8):** the Cloudflare Worker no longer deploys via a
+manual dashboard copy-paste — `.github/workflows/deploy-worker.yml` runs
+`wrangler deploy` in CI on every push that touches `golf_proxy_worker.js` or
+`wrangler.toml`. `SETUP.md`'s manual-dashboard walkthrough is superseded, kept only
+for reference.
 
 **Resolved Sep 18, 2026 (7-phase audit, Phase 1):** `golf_bet_tracker.html` and every
 `.md` doc — previously never committed at all — are now under version control.
-**Still true:** `deploy.sh` itself only ever `git add`s `index.html` on each run. This
-session's fixes to `golf_bet_tracker.html` were committed manually alongside it each
-time, not via `deploy.sh`. Any future edit to `golf_bet_tracker.html` that only goes
-through `./deploy.sh` will still leave the source file's latest version uncommitted
-relative to `index.html` — the script would need to `git add golf_bet_tracker.html`
-too to close this gap for good. Not fixed this session (out of the audit's scope; a
-one-line change to `deploy.sh` whenever Ross wants it).
+**Resolved Sep 19, 2026 (Phase 9):** `deploy.sh` used to only `git add index.html`,
+silently leaving `golf_bet_tracker.html` (the actual source of truth) uncommitted on
+any deploy that didn't also get a manual commit alongside it. Now stages both files:
+`git add golf_bet_tracker.html index.html`.
 
 ---
 
@@ -343,20 +343,29 @@ to git. Previously only `index.html`, `golf_proxy_worker.js`, `icon.svg`,
 
 ---
 
-## Known Pending Items (updated Sep 18, 2026, after the 7-phase audit)
+## Known Pending Items (updated Sep 19, 2026)
 
-- **Live Cloudflare Worker doesn't match `golf_proxy_worker.js` — cloud sync has
-  never actually worked in production.** Found in the audit's Phase 6. Requires a
-  manual Cloudflare dashboard redeploy from Ross; see errors.md Known Issues #9.
-- Cloudflare KV namespace binding must be done manually in dashboard before cloud
-  sync works — separate check from the redeploy above, do both.
+- ~~Live Cloudflare Worker doesn't match `golf_proxy_worker.js` — cloud sync never
+  worked in production.~~ **Resolved Sep 19, 2026 (Phase 8).** Worker now deploys via
+  CI (`.github/workflows/deploy-worker.yml`); confirmed live end-to-end (`/health`,
+  `/sync/save`, `/sync/load` all verified against the real deployed Worker).
+- ~~Cloudflare KV namespace binding.~~ **Resolved Sep 19, 2026** — attached via
+  `wrangler.toml`, confirmed working (`/health` returns `sync:true`).
+- ~~Course search never actually loaded real scorecard data — every course
+  selection threw silently.~~ **Resolved Sep 19, 2026 (Phase 9).** Root cause and
+  fix in errors.md's "pickCourse() Always Threw on Real Results" entry; verified
+  against live Pebble Beach data (all 18 holes' par/handicap cross-checked exactly
+  against the raw API response).
+- ~~`deploy.sh` only staged `index.html`, leaving `golf_bet_tracker.html` able to go
+  uncommitted on a routine deploy.~~ **Resolved Sep 19, 2026 (Phase 9)** — now stages
+  both files.
 - No HCP field on the new login screen — new users default to HCP 10 and update in Setup
 - Full round state (scorecards) is included in cloud sync but not in any URL-based fallback
 - No conflict resolution if same profile is edited on two devices simultaneously (last write wins)
 - PWA icon is SVG only; `icon-192.png` and `icon-512.png` referenced in manifest but
   **still not generated as of Sep 18, 2026** — confirmed not on disk. Flagged in May, never done.
-- `/sync/save`/`/sync/load` security gaps once the Worker is redeployed: CORS wide
-  open, no PIN rate limiting, unsalted SHA-256 hash. Documented, not fixed.
+- `/sync/save`/`/sync/load` security gaps, now live and real (not hypothetical): CORS
+  wide open, no PIN rate limiting, unsalted SHA-256 hash. Documented, not fixed.
 - **`migrateRecentRounds()` only fixes rounds saved in the last 7 days** — see
   Architecture section above. No user-facing way to force-recompute an older round.
 - **Dots and Junk payout math changed twice (Aug 1, Aug 13) with no user-facing
@@ -364,6 +373,10 @@ to git. Previously only `index.html`, `golf_proxy_worker.js`, `icon.svg`,
   types will see numbers computed under a completely different rule and won't know why.
 - No sign-out/switch-profile UI (removed as unreachable dead code in the audit rather
   than left half-wired — needs to be built, not restored).
+- A GitHub token was found embedded in plaintext in this repo's `.git/config` remote
+  URL — stripped from this local machine's config (now uses the `osxkeychain`
+  credential helper), but the specific exposed token itself should still be revoked
+  via GitHub settings (it was displayed in a chat transcript). Ross-only action.
 - Zero progress on the product roadmap (claim-later, premium gate, season stats,
   Supabase/real-time backend, live dashboard) — see CONTEXT_UPDATE.md. All work since
-  May has been bug fixes, UX polish, and this audit — no roadmap movement yet.
+  May has been bug fixes, UX polish, and infrastructure — no roadmap movement yet.

@@ -18,13 +18,19 @@ phase N" — the numbering below is unambiguous).
 8. `PHASE_8_worker_ci_deploy.md` — Cloudflare Worker CI/CD pipeline (built Sep
    19 2026; not a "run this" phase — it's the record of what exists and the
    2 steps only Ross can finish, per errors.md Known Issues #9)
+9. `PHASE_9_course_search_fix.md` — fix course search never loading real
+   scorecard data (root cause: `pickCourse()`'s `courseCache[id]||apiFetch()`
+   short-circuit always uses the search-result snippet, which never has hole
+   data), plus the `deploy.sh` staging gap. Found and fix verified against
+   real live API data Sep 19, 2026 — see errors.md.
 
 Phases 3, 4, and 6 are deliberately audit-only — they stop and report
 before anything gets changed, since a couple of these (calculation math
 in particular) touch real money numbers and shouldn't get an autofix
 without a human reading the before/after first.
 
-**Status as of Sep 19, 2026: Phases 1–7 complete.** See errors.md for full
-write-ups of each. Phase 8 (Worker CI/CD) is built but not yet live — it
-needs two things only Ross can do (a Cloudflare API token + two GitHub repo
-secrets), documented in that phase file.
+**Status as of Sep 19, 2026: Phases 1–9 complete.** See errors.md for full
+write-ups of each. Phase 8 (Worker CI/CD) is live in production — Worker
+deploys automatically via CI now, verified end-to-end (`/health`, `/sync/save`,
+`/sync/load` all confirmed live). Phase 9 (course search fix) is complete and
+verified against real live API data — see that file's close-out note.

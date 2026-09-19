@@ -70,17 +70,20 @@ committed before this session; see errors.md "Known Issues" #1 for the fix.
 
 ---
 
-## Active Audit — phases/ folder (Sep 18, 2026)
+## Audit / Phases — phases/ folder (Sep 18-19, 2026)
 
-A 7-phase stale-code/dead-code/calculation audit is in progress — see
-MEMORY.md's "Decided: 7-Phase Stale/Dead-Code/Calculation Audit" entry for why.
-Each phase is a standalone instruction file in `phases/` (`PHASE_1_repo_hygiene.md`
-through `PHASE_7_close_loop.md`, plus `phases/README.md` as the index). When told
-to "run phase N," read that file in full and follow it exactly — several phases
-are deliberately audit-only and must stop for Ross's review before any fix is
-applied, especially Phase 4 (calculation correctness), since that touches real
-betting math. Do not skip ahead to a later phase without confirming the current
-one's stopping point was actually reached.
+The original 7-phase stale-code/dead-code/calculation audit (Phases 1–7, see
+MEMORY.md's "Decided: 7-Phase Stale/Dead-Code/Calculation Audit" entry for why) is
+complete. Phase 8 (Worker CI/CD) and Phase 9 (course search fix) followed as
+targeted, self-contained fixes for issues Phase 6 and later poking-around
+surfaced — see `phases/README.md` for the current full index. When told to "run
+phase N," read that file in full and follow it exactly — several phases are
+deliberately audit-only and must stop for Ross's review before any fix is applied.
+Do not skip ahead to a later phase without confirming the current one's stopping
+point was actually reached, and — learned the hard way during Phase 9 — always
+verify a phase file's assumptions against the actual current code before executing
+its steps literally; a phase file can itself go stale if written without seeing a
+fix that already landed elsewhere.
 
 ---
 
