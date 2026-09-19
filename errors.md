@@ -635,5 +635,9 @@ Not fixed yet, flagged for prioritization:
    getting cross-device sync (the app shows "cloud offline — will sync when
    reconnected," which reads as transient) but no profile has ever actually reached
    the `GOLF_SYNC` KV store through this Worker. **Highest-priority item on this
-   list** — fix is a Cloudflare dashboard redeploy (Ross-only, not a code change),
+   list.** Checked this session whether Claude Code could redeploy it directly —
+   no: no `wrangler` CLI or Cloudflare API token in this environment, and the
+   Cloudflare Developer Platform connector needs an OAuth authorization that can't
+   be completed in a non-interactive session. **Fix requires Ross** — a Cloudflare
+   dashboard redeploy (Ross-only, not a code change),
    see the Phase 6 write-up above for exact steps.
