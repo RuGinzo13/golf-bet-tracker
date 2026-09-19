@@ -972,3 +972,105 @@ prefix suggests a `gh auth login` origin) or
 https://github.com/settings/tokens, and issue a fresh credential via
 whichever setup path (Step 3a) he uses. Not something this session can do
 for him — revoking a token requires his GitHub account action.
+
+
+---
+
+## Session Summary, September 19, 2026 (cont'd) — Credential Revocation Confirmed, Phase 9 Fully Closed
+
+**What was verified, not just trusted:**
+- Ross revoked the exposed GitHub OAuth token via
+  https://github.com/settings/applications (Authorized OAuth Apps). Confirmed
+  it's actually dead, not just a UI toggle: re-ran `git push --dry-run` from
+  the remote-devices bridge session using the exact same stored credential
+  that had authenticated cleanly earlier in this session. It now fails —
+  `remote: Invalid username or token. Password authentication is not
+  supported for Git operations.` / `fatal: Authentication failed`. That's a
+  real before/after test against the live GitHub API, not an assumption.
+- **Side effect, expected and harmless:** this also killed the
+  remote-devices bridge session's own push access, since it had been using
+  that same token (see the Sep 19 "Git Credential Stored in Plaintext"
+  entry above). That's fine — this bridge was never the machine real
+  deploys run through. Ross's actual local Claude Code session on his Mac
+  separately confirmed push access is live there via a fresh credential,
+  which is the machine that matters and closes out Phase 9 Step 3a for
+  real.
+- **The Phase 9 code fix itself was verified live, independently, a second
+  way:** fetched `https://raw.githubusercontent.com/RuGinzo13/
+  golf-bet-tracker/main/index.html` directly (bypassing any GitHub Pages
+  cache) and confirmed the fixed `pickCourse()` code — the `var
+  cached=courseCache[id]; var sets=cached?extractTees(cached):[];`
+  pattern with the "cache the FULL course detail, not the search snippet"
+  comment — is genuinely present in what's live on `main`, not just
+  committed locally.
+- The leftover `Claude outputs/` scratch folder (duplicate copies of the
+  Phase 9 files, already correctly placed in `phases/`) was deleted by
+  Ross. `git status` now shows a fully clean working tree, in sync with
+  `origin/main`.
+
+**This closes Phase 9 completely** — course search fix (live, verified
+twice, two different ways), `deploy.sh` staging gap (fixed), the credential
+exposure this phase's prep surfaced (token out of the repo, revoked,
+confirmed dead), and the scratch-file cleanup. Nothing from this phase is
+still open.
+
+
+---
+
+## Session Summary, September 19, 2026 (cont'd) — Nassau H2H / Match Play Strokes Distorted by a Third Player's Handicap
+
+**What didn't work:** `nassauHoles()`, `nassauLiveState()`, and `matchCalc()` all
+compared players' hole-by-hole scores using the shared, memoized `NET()` —
+which allocates each player's strokes relative to `minH()`, the LOWEST
+handicap among ALL active players in the round, not relative to the other
+player in that specific 1v1 matchup. Reported by Ross: in a 4-player round
+(Ross 18, Brett 12, Graser 10, Josh 18), the Ross-vs-Brett Nassau H2H
+matchup's TOTAL stroke count displayed correctly (6 — `hcp` differences
+cancel the reference point out, so that part was always right), but the
+actual match outcome wasn't isolated from Graser and Josh being in the
+round. Confirmed and reproduced with the real extracted functions: with
+Graser (hcp 10) as the field's low handicap, Ross's 6-stroke advantage over
+Brett landed on stroke-index holes 3–8 (both Ross and Brett already get a
+stroke relative to Graser on holes SI 1–2, so those cancel out and the
+*effective* advantage shifts to the next 6 hardest holes) — not on the
+correct SI 1–6 that a standalone Ross-vs-Brett match would use. Proven with
+an isolated single-hole test: on hole SI 1, with Ross and Brett shooting an
+identical gross 5, the old field-relative code calls it **halved** (both get
+a stroke off Graser, net scores tie); the correct pairwise calculation calls
+it a **Ross win** (Ross gets a stroke relative to Brett specifically, Brett
+doesn't). A second full-front-9 test showed the actual win/loss tally
+differing (0-3, halved 6 under the old code vs 1-4, halved 4 under the
+fix) for the same identical scores — a real, not theoretical, accounting
+difference. `matchCalc()` (Match Play) had the exact same bug, since it also
+read the shared `net=NET()`.
+**What worked:** Added `NETPair(p1i,p2i)` — a new, non-memoized helper that
+computes net scores for exactly two players, using ONLY those two players'
+handicaps (the lower of the pair as the 0 reference), so a third player's
+handicap can never influence a 1v1 matchup's stroke allocation. Wired it
+into `nassauHoles()`, `nassauLiveState()` (the live in-round Nassau tracker),
+and a new shared `matchRun(p1,p2)` helper used by `matchCalc()` and the 3
+other places that had duplicated Match Play's hole-tally loop inline (the
+share-text builder, the Gross Money Flow detail view, and `rResults()`'s
+Match Play card detail) — all 4 previously read the shared field-relative
+`net`, all 4 now call `matchRun()`. Deliberately did NOT touch `NET()`
+itself, the Scores summary table, `nassauHolesTeam()`/`nassauLiveStateTeam()`
+(2v2 Nassau), `wolfCalc()`, `s666Calc()`, or `s531Calc()` — those are genuine
+group formats where every active player needs ONE consistent net score
+relative to the same reference point; only pure 1v1 matchups (Nassau H2H,
+Match Play) were distorted by this bug. Verified against the patched file's
+actual extracted functions (not reimplemented) with Node: syntax check
+passes, the hole-1 single-hole proof and the full front-9 W-L tally both
+confirm the fix, and a `matchCalc()` sanity run produces a coherent result.
+**Not yet committed/pushed** — code change is written to
+`golf_bet_tracker.html` and `index.html` (kept in sync), awaiting Ross's
+go-ahead per this project's standing practice of not pushing real-money-math
+changes without explicit confirmation.
+**Note for next time:** "the total matches" is not the same proof as "the
+per-hole allocation matches" for any golf handicap calculation — match play
+outcomes depend on exactly which holes get a stroke, not just the count.
+Any function comparing two specific players head-to-head needs its own
+pairwise stroke reference, never a shared field-wide one, even when the
+totals happen to check out. Group formats (best-ball teams, Wolf, point
+formats) are the opposite case — those genuinely need one shared reference
+per player, so don't blanket-apply this fix pattern without checking which
+category a given bet type falls into first.

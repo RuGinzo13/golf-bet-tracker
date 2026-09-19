@@ -299,3 +299,77 @@ thing, make it structural). Also rejected: asking Ross for sign-off on every
 individual doc update going forward — logging findings/decisions as they
 happen is the same class of action as the decisions themselves, not a
 separate thing that needs its own approval each time.
+
+
+---
+
+## Session Summary, September 19, 2026 (cont'd) — Phase 9 Closed Out, Credential Incident Resolved
+
+**Worked on:** Closing out Phase 9 (course search fix) after a parallel
+local session had already applied and pushed the actual code changes.
+Independently re-verified everything rather than taking the parallel
+session's summary at face value, per standing preference for checked claims
+over trusted ones.
+
+**Completed:**
+- Verified the live code fix two independent ways: local git history/diff
+  inspection, and a direct raw-GitHub fetch of the deployed `main` branch
+  file (bypassing cache) confirming the fixed `pickCourse()` logic is
+  genuinely serving live, not just committed.
+- Verified the exposed GitHub token is actually dead after Ross revoked it —
+  re-ran the same push test that had worked earlier in the session and
+  confirmed it now fails authentication. Not assumed, tested.
+- Cleaned up (Ross deleted) the leftover `Claude outputs/` scratch
+  directory. Repo working tree is fully clean, in sync with `origin/main`.
+- Documented the full credential-exposure-to-resolution arc in errors.md:
+  the original plaintext-token-in-URL finding, the mistake of pasting the
+  literal token into doc files as a "revoke this" reference (caught by
+  GitHub's push protection before it reached the remote), the redaction,
+  and the final confirmed revocation.
+
+**Decisions made:** None new this stretch — this was verification and
+close-out work following decisions already logged (credential storage
+fix, self-maintained MD docs).
+
+**Next session:** Phase 9 is fully closed, nothing pending from it. No
+other work has been requested yet — check errors.md's Known Issues list
+(still open: `migrateRecentRounds()` 7-day window, `/sync` security gaps,
+PWA icons, KV conflict resolution, no sign-out UI) for candidates if Ross
+wants to pick something up, but don't start any of it unprompted.
+
+
+---
+
+## September 19, 2026 — Decided: 1v1 bet types (Nassau H2H, Match Play) get pairwise stroke allocation, not field-relative
+
+**What was decided:** Added a `NETPair(p1,p2)` helper and rewired
+`nassauHoles()`, `nassauLiveState()`, and a new `matchRun()` helper (used by
+`matchCalc()` and 3 duplicate inline blocks) to use it instead of the shared,
+field-relative `NET()`. This isolates any two-player Nassau H2H or Match
+Play matchup from being influenced by a third player's handicap. Left the
+Scores table, 2v2 Nassau, Wolf, 6/6/6, and 5-3-1 on the shared `NET()`
+unchanged — those are genuine group formats that need one consistent net
+score per player.
+**Why:** Ross reported (and this session reproduced with the real code) that
+a Nassau H2H matchup's total stroke count was always right, but WHICH holes
+that advantage landed on shifted depending on who else was in the round —
+because every player's strokes were computed relative to the whole field's
+lowest handicap, not relative to just the two players actually in that
+matchup. Confirmed with an isolated single-hole test that this can flip a
+specific hole from halved to won (or vice versa) for identical gross scores,
+and that a full front-9 win/loss tally genuinely differs between the old and
+fixed code for the same scorecard. This is a real settlement-correctness
+bug, not a cosmetic one — it can change which player actually gets paid on
+a Nassau or Match Play bet whenever 3+ players with different handicaps are
+in the round, which is the normal case, not an edge case.
+**What was rejected:** Leaving `nassauHoles`/`matchCalc` on the shared
+`NET()` and treating the "total strokes still add up" fact as sufficient
+(it isn't — the total is a red herring here, since `d1-d2` always equals
+`hcp1-hcp2` regardless of the reference point; only the per-hole allocation
+actually determines who wins). Also rejected: rewriting `NET()` itself to
+be pairwise — that would break every group-format bet (Scores table, 2v2
+Nassau, Wolf, 6/6/6, 5-3-1), which correctly depend on one shared net score
+per player across the whole round.
+**Not yet committed/pushed** — see errors.md for the full write-up and
+verification detail. Confirm with Ross before shipping, per standing
+practice for real-money-math changes.

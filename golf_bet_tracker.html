@@ -273,6 +273,24 @@ function NET(){
   _netCache=P.map(function(p,i){if(!p.on)return Array(18).fill(null);return C.map(function(h,hi){var g=parseInt(GR[i][hi]);return isNaN(g)?null:g-ns[i][hi];});});
   return _netCache;
 }
+// Pairwise net score for a single 1v1 matchup (Nassau H2H / Match Play).
+// Unlike NET(), which allocates strokes relative to the whole active field's
+// lowest handicap, this allocates strokes relative to ONLY the two players in
+// this specific matchup — so a third player's handicap can never change which
+// holes this pair's strokes land on. Not memoized (parameterized per pair);
+// every other calc function correctly keeps using the shared NET(). See
+// errors.md, "Nassau H2H / Match Play strokes distorted by a third player's
+// handicap" for why this exists.
+function NETPair(p1i,p2i){
+  var p1=P[p1i],p2=P[p2i];
+  var pmh=Math.min(p1.hcp,p2.hcp);
+  var d1=Math.max(0,p1.hcp-pmh),d2=Math.max(0,p2.hcp-pmh);
+  var ns1=C.map(function(h){return hSt(d1,h.hcp);}),ns2=C.map(function(h){return hSt(d2,h.hcp);});
+  var net={};
+  net[p1i]=C.map(function(h,hi){var g=parseInt(GR[p1i][hi]);return isNaN(g)?null:g-ns1[hi];});
+  net[p2i]=C.map(function(h,hi){var g=parseInt(GR[p2i][hi]);return isNaN(g)?null:g-ns2[hi];});
+  return net;
+}
 function pn(i){return((P[i]&&P[i].name)||'').trim()||'P'+(i+1);}
 function sC(d){return d<=-2?'#f5a030':d===-1?'#ff3030':d===0?'#60e030':d===1?'#30aaff':'#c060ff';}
 // Money formatting — shows cents only when an amount is fractional (split pots can be odd).
@@ -289,7 +307,7 @@ function nassauStrokes(p1i,p2i){
 // ── Bet Math ──────────────────────────────────────────────────────────────────
 function nassauHoles(p1,p2,from,to){
   // Returns {w1,w2,halved,complete} — hole-by-hole match play over holes [from..to]
-  var net=NET(),w1=0,w2=0,halved=0;
+  var net=NETPair(p1,p2),w1=0,w2=0,halved=0;
   for(var h=from;h<=to;h++){
     var n1=net[p1][h],n2=net[p2][h];
     if(n1==null||n2==null)return{w1:w1,w2:w2,halved:halved,complete:false};
@@ -357,7 +375,7 @@ function nassauCalc(){
   return r;
 }
 function nassauLiveState(p1,p2,from,to){
-  var net=NET(),w1=0,w2=0,played=0;
+  var net=NETPair(p1,p2),w1=0,w2=0,played=0;
   for(var h=from;h<=to;h++){var n1=net[p1][h],n2=net[p2][h];if(n1==null||n2==null)continue;played++;if(n1<n2)w1++;else if(n2<n1)w2++;}
   var total=to-from+1,remaining=total-played,diff=w1-w2;
   return{w1:w1,w2:w2,played:played,remaining:remaining,diff:diff,closed:played>0&&Math.abs(diff)>remaining};
@@ -395,12 +413,18 @@ function buildNassauLiveHtml(){
   return h;
 }
 function updateNassauLive(){var el=document.getElementById('nassau-live');if(el)el.innerHTML=buildNassauLiveHtml();}
+// Pairwise hole-by-hole run tally for a single Match Play matchup — see NETPair.
+function matchRun(p1,p2){
+  var net=NETPair(p1,p2),run=0,played=0;
+  C.forEach(function(_,hi){var n1=net[p1][hi],n2=net[p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
+  return{run:run,played:played};
+}
 function matchCalc(){
   if(!BT.match.on)return null;
-  var net=NET(),r={};ais().forEach(function(i){r[i]=0;});
+  var r={};ais().forEach(function(i){r[i]=0;});
   BT.match.mus.forEach(function(mu){
     var p1=mu.p1,p2=mu.p2,sk=+mu.stake;if(!P[p1]||!P[p1].on||!P[p2]||!P[p2].on)return;
-    var run=0,played=0;C.forEach(function(_,hi){var n1=net[p1][hi],n2=net[p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
+    var mr=matchRun(p1,p2),run=mr.run,played=mr.played;
     var rem=18-played,abs=Math.abs(run);if((abs>rem&&played>0)||played===18){if(run!==0){var w=run>0?p1:p2;r[w]+=sk;r[w===p1?p2:p1]-=sk;}}
   });
   return r;
@@ -718,10 +742,9 @@ function buildShareText(){
     });
   }
   if(BT.match.on){
-    var mnet=NET();
     BT.match.mus.forEach(function(mu){
       if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
-      var run=0,played=0;C.forEach(function(_,hi){var n1=mnet[mu.p1][hi],n2=mnet[mu.p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
+      var mr=matchRun(mu.p1,mu.p2),run=mr.run,played=mr.played;
       if(!played)return;
       var rem=18-played,abs=Math.abs(run),ldr=run>0?mu.p1:run<0?mu.p2:null;
       betLines.push('Match ('+pn(mu.p1)+' v '+pn(mu.p2)+'): '+(ldr?(abs>rem?pn(ldr)+' wins '+abs+'&'+rem:pn(ldr)+' '+abs+'UP'):'All Square'));
@@ -931,7 +954,6 @@ function rFlow(){
 
   h+='<div style="font-size:10px;color:#4a7050;margin-bottom:14px;padding:8px 12px;background:rgba(201,153,30,.05);border:1px solid rgba(201,153,30,.12);border-radius:5px">💸 Each arrow = one bet settled independently (gross). Final Settlements below net everything together into minimum payments.</div>';
 
-  var net=NET();
   var games=[
     {name:'Nassau',result:nassauCalc(),detail:function(){
       var d='';
@@ -960,7 +982,7 @@ function rFlow(){
       var d='';
       BT.match.mus.forEach(function(mu){
         if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
-        var run=0,played=0;C.forEach(function(_,hi){var n1=net[mu.p1][hi],n2=net[mu.p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
+        var mr=matchRun(mu.p1,mu.p2),run=mr.run,played=mr.played;
         var rem=18-played,abs=Math.abs(run),ldr=run>0?mu.p1:run<0?mu.p2:null;
         var st=ldr?(abs>rem&&played>0?pn(ldr)+' wins '+abs+'&amp;'+rem:pn(ldr)+' '+abs+'UP'):'All Square';
         d+='<div style="font-size:9px;color:#7acc90;margin-bottom:6px;padding:5px 8px;background:rgba(0,40,16,.4);border-radius:4px">'+pn(mu.p1)+' v '+pn(mu.p2)+': <span style="color:#c9991e">'+st+'</span></div>';
@@ -1746,8 +1768,7 @@ function rResults(){
     var mex='';
     BT.match.mus.forEach(function(mu){
       if(!P[mu.p1]||!P[mu.p1].on||!P[mu.p2]||!P[mu.p2].on)return;
-      var run=0,played=0;
-      C.forEach(function(_,hi){var n1=net[mu.p1][hi],n2=net[mu.p2][hi];if(n1==null||n2==null)return;played++;run+=n1<n2?1:n2<n1?-1:0;});
+      var mr=matchRun(mu.p1,mu.p2),run=mr.run,played=mr.played;
       var rem=18-played,abs=Math.abs(run),ldr=run>0?mu.p1:run<0?mu.p2:null;
       var st=ldr?(abs>rem&&played>0?pn(ldr)+' wins '+abs+'&'+rem:pn(ldr)+' '+abs+'UP'):('All Square');
       mex+='<div style="font-size:9px;color:#c9991e;line-height:1.6">'+pn(mu.p1)+' v '+pn(mu.p2)+'<br><span style="color:#8ab890">'+st+(played<18?' ('+rem+' left)':'')+'</span></div>';
