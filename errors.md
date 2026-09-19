@@ -452,6 +452,30 @@ they're trusting for real money settlement.
 
 ---
 
+## Session Summary, September 18, 2026 (cont'd) — Phase 5, Fix 3: Dead Bet-Config Fields
+
+**What didn't work:** `BT.junk`'s default object carried six numeric stake fields —
+`sandy`, `barky`, `polie`, `birdie`, `eagle`, `hio` — left over from the pre-Aug-13
+per-item-stake payout model. Since the Aug 13 leader-take-all rewrite, `junkCalc()`/
+`junkTotals()`/`junkRate()` only ever read `val` (the flat per-item rate) and
+`greenie` (legacy fallback for `val`) — confirmed by grep, these six fields are never
+read anywhere in the app. While fixing this, found the exact same pattern one field
+over: `BT.dots.grn` was never read either (only `BT.dots.fwy` is used, as `dotRate()`'s
+fallback) — this wasn't called out in the Phase 4 report (that audit focused on
+calc-function correctness, not a field-by-field dead-property sweep of `BT`), but
+it's the identical bug class Ross had just approved removing on the `junk` side, so
+it was fixed in the same commit rather than left inconsistent.
+**What worked:** Trimmed `BT.junk` to `{on,val,greenie}` and `BT.dots` to
+`{on,val,fwy}` (golf_bet_tracker.html ~line 107-108). Re-ran the Phase 4 20,000-trial
+zero-sum test against the trimmed state — still zero real failures, confirming
+nothing outside these two objects depended on the removed fields.
+**Note for next time:** Phase 2's dead-code scan checked top-level functions and
+`var` declarations but not properties nested inside object literals like `BT` — that
+gap let both of these survive two rounds of cleanup. Worth adding "grep every key of
+every top-level state object for read-sites" to the dead-code checklist next time.
+
+---
+
 ## Known Issues — Unresolved (as of Sep 18, 2026)
 
 Not fixed yet, flagged for prioritization:
