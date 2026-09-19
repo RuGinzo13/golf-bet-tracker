@@ -429,3 +429,11 @@ structural problem.
 different surface symptoms, stop patching the symptom and look for the shared root
 cause — here, "which environment is actually running this command" was the
 question that mattered, not "which credential is currently wrong."
+
+**Update, Sep 20, 2026 — confirmed working.** First real use of this rule: three
+bridge-session commits had piled up locally (`37977b6` Nassau/Match Play fix,
+`4549383` this rule's own commit, `412c3bb` the Par 3 Clock carry-over feature).
+Ross ran `phases/SYNC_push_pending_commits.md` in local Claude Code, which pushed
+all three in one batch and re-synced `index.html` via `deploy.sh`. Confirmed from
+the bridge session afterward: local `main` matches `origin/main` exactly, no
+uncommitted changes. The handoff worked exactly as designed on its first real test.

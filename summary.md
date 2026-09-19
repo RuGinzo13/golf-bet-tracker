@@ -317,24 +317,81 @@ found that had gone completely undetected.
 
 ---
 
+### September 19-20, 2026 - Worker CI/CD closed out, Nassau/Match Play pairwise fix,
+### Par 3 Clock carry-over, and a standing push/commit division of labor
+
+**Cloudflare Worker CI/CD (Phase 8).** Built `.github/workflows/deploy-worker.yml` +
+`wrangler.toml` so the Worker deploys via `wrangler deploy` on every push touching
+`golf_proxy_worker.js`/`wrangler.toml`, instead of the manual dashboard step that had
+silently gone undone for 4+ months (see "Known Architectural Debt" in CLAUDE.md).
+Three failed attempts before it actually went live - wrong account ID sourced from an
+ambiguous connector field, then an API token that looked saved but wasn't - each
+producing the identical generic Cloudflare 400/9106 error, which is itself the lesson
+(full incident in errors.md, Phase 8 entries). Confirmed live via both the Cloudflare
+connector directly and Ross's own browser: `/health` returns `sync:true`, deployed
+code matches the repo exactly.
+
+**Nassau H2H / Match Play stroke-allocation bug.** `NS()`/`NET()` compute net scores
+relative to the lowest handicap in the WHOLE round, so a 1v1 matchup between two
+specific players had its per-hole stroke allocation silently distorted by a third
+player's handicap - the total strokes between any two players was always right, but
+*which holes* the strokes landed on shifted depending on who else was in the round,
+which can flip actual hole outcomes and money. Fixed with a new `NETPair(p1i,p2i)`
+helper that computes net scores for exactly two players off their own two handicaps,
+applied only to genuinely 1v1 bet types (Nassau H2H via `nassauHoles()`/
+`nassauLiveState()`, Match Play via a new `matchRun()` helper that replaced four
+separate duplicated inline tally blocks). Deliberately left untouched: the Scores
+table, 2v2 team Nassau, Wolf, 6/6/6, 5-3-1 - all correctly need one shared
+field-relative net score per player. Full root cause and reproduction in errors.md.
+
+**Par 3 Clock carry-over (optional, default off).** Previously a par-3 with nobody
+marked "on the clock" just paid nothing for that hole. New `BT.p3c.carry` toggle lets
+an unclaimed hole's stake roll forward - as far as needed - until someone is back on
+the clock, at which point the payout multiplies by however many holes carried in. Old
+saved rounds have no `carry` key at all, so this is a provable no-op unless a user
+explicitly turns it on; verified with carry OFF matching the pre-change output
+byte-for-byte plus 3 carry-ON scenarios, all checked for exact zero-sum. Full detail
+in errors.md.
+
+**A standing division-of-labor rule (not a code change, but shapes how every future
+code change here gets shipped).** After three different-looking git push failures
+from the Cowork/remote-devices bridge session all turned out to share one root cause
+- its shell runs in an ephemeral sandbox whose git credentials don't persist across
+turns, not on Ross's actual Mac - CLAUDE.md now codifies the split: the bridge
+session researches, edits, and (when it already has verified working code) commits
+locally, but never runs `git push`; only local Claude Code, with the Mac's real
+persistent GitHub credentials, pushes. A new reusable utility, `phases/
+SYNC_push_pending_commits.md`, is what Ross runs in local Claude Code to pick up
+anything the bridge left committed-but-unpushed. First real use was this exact batch
+of commits (the Nassau/Match Play fix, this rule's own commit, and the Par 3 Clock
+carry-over feature all landed on `origin/main` in one push via that phase) - Ross
+confirmed and it worked as designed.
+
+---
+
 ## Current File Structure
 
 ```
 GolfBetting/
-├── golf_bet_tracker.html   # Source of truth — all app code (2,130 lines, Sep 18 2026)
-├── index.html              # Copy of above — served by GitHub Pages
+├── golf_bet_tracker.html   # Source of truth — all app code (2,185 lines, Sep 20 2026)
+├── index.html              # Copy of above — served by GitHub Pages (kept in sync via deploy.sh)
 ├── manifest.json           # PWA manifest
 ├── sw.js                   # Service worker (cache-first, v3)
 ├── icon.svg                # PWA home screen icon
-├── golf_proxy_worker.js    # Cloudflare Worker source (deploy via dashboard)
-├── deploy.sh               # One-command deploy script
-├── SETUP.md                # Cloudflare Worker setup walkthrough
+├── golf_proxy_worker.js    # Cloudflare Worker source
+├── wrangler.toml           # Worker deploy config + GOLF_SYNC KV binding (added Sep 19 2026)
+├── .github/workflows/
+│   └── deploy-worker.yml   # Auto-deploys the Worker via CI on push (added Sep 19 2026)
+├── deploy.sh               # One-command frontend deploy script
+├── SETUP.md                # Original manual Worker setup — superseded by CI, kept for reference
 ├── CLAUDE.md                # Claude Code project context (@summary.md, @errors.md)
 ├── MEMORY.md                # Decision log
 ├── errors.md                # Bug / lesson log
 ├── summary.md                # This file — architecture + build history
-└── CONTEXT_UPDATE.md         # Product vision, market research, roadmap (added Sep 18 2026 —
-                               # this content used to live (mislabeled) in this file; see errors.md)
+├── CONTEXT_UPDATE.md         # Product vision, market research, roadmap (added Sep 18 2026 —
+│                              # this content used to live (mislabeled) in this file; see errors.md)
+└── phases/                   # Numbered audit phases (1-9) + non-numbered utilities — see
+                               # phases/README.md for the index
 ```
 
 **Resolved Sep 18, 2026 (7-phase audit, Phase 1):** every file above is now committed
@@ -343,7 +400,7 @@ to git. Previously only `index.html`, `golf_proxy_worker.js`, `icon.svg`,
 
 ---
 
-## Known Pending Items (updated Sep 19, 2026)
+## Known Pending Items (updated Sep 20, 2026)
 
 - ~~Live Cloudflare Worker doesn't match `golf_proxy_worker.js` — cloud sync never
   worked in production.~~ **Resolved Sep 19, 2026 (Phase 8).** Worker now deploys via
@@ -373,10 +430,11 @@ to git. Previously only `index.html`, `golf_proxy_worker.js`, `icon.svg`,
   types will see numbers computed under a completely different rule and won't know why.
 - No sign-out/switch-profile UI (removed as unreachable dead code in the audit rather
   than left half-wired — needs to be built, not restored).
-- A GitHub token was found embedded in plaintext in this repo's `.git/config` remote
-  URL — stripped from this local machine's config (now uses the `osxkeychain`
-  credential helper), but the specific exposed token itself should still be revoked
-  via GitHub settings (it was displayed in a chat transcript). Ross-only action.
+- ~~A GitHub token was found embedded in plaintext in this repo's `.git/config`
+  remote URL.~~ **Resolved.** Stripped from git config (moved to `--global`
+  credential-helper scope, never repo-local), and the exposed token itself was
+  confirmed revoked (re-authentication with it fails; see errors.md "Credential
+  Revocation Confirmed, Phase 9 Fully Closed").
 - Zero progress on the product roadmap (claim-later, premium gate, season stats,
   Supabase/real-time backend, live dashboard) — see CONTEXT_UPDATE.md. All work since
   May has been bug fixes, UX polish, and infrastructure — no roadmap movement yet.

@@ -1128,7 +1128,11 @@ active. The Dots/Junk tab's per-hole Par 3 Clock cards now show a "— carries N
 tag on any hole whose payout, if it resolves, will be multiplied, plus a note on
 empty holes that their stake is rolling forward when carry-over is on.
 
-**Not yet pushed** - committed locally per the Sep 19-20 division-of-labor rule
-(CLAUDE.md, "Where Code Changes Actually Get Committed and Pushed"). Needs
-`phases/SYNC_push_pending_commits.md` run in local Claude Code, same as the
-still-pending Nassau/Match Play fix and the CLAUDE.md/phases update.
+**Pushed and live, Sep 20, 2026.** Ross ran `phases/SYNC_push_pending_commits.md`
+in local Claude Code, which pushed this commit (`412c3bb`) together with the two
+others that were pending (`4549383` division-of-labor rule, and `37977b6` the
+Nassau/Match Play fix) in one batch, then re-ran `deploy.sh` so `index.html` picked
+up the change too. Confirmed from the bridge session: local `main` matches
+`origin/main` exactly, working tree clean, `index.html` byte-identical to
+`golf_bet_tracker.html`. First real-world use of the new SYNC utility - worked as
+designed on the first try.
