@@ -320,6 +320,94 @@ for Phase 7 (Close the Loop) or an explicit ad-hoc fix now if Ross wants it soon
 
 ---
 
+## Calculation Correctness Audit — September 18, 2026 (Phase 4, audit-only — no fixes applied)
+
+Traced `nassauCalc()`, `matchCalc()`, `wolfCalc()`, `s666Calc()`, `s531Calc()`,
+`p3cCalc()`, `dotsCalc()`, `junkCalc()`, `feesTotal()`, and `settleDebts()` against
+their plain-English Setup descriptions, one at a time. Also ran a 20,000-trial
+randomized synthetic test (2/3/4-player rounds, all 8 bet types active
+simultaneously, varied dot/junk rates including deliberately "ugly" fractional-cent
+values) plus two hand-checked deterministic scenarios, against the real extracted
+calc code (lines 88–614 of `golf_bet_tracker.html`, run as-is, not reimplemented) —
+no Node available in this environment, so the harness ran via `osascript -l
+JavaScript` (JXA), a real JS engine, not a parallel/simulated implementation.
+
+**Result: no money-math correctness bugs found.** Every payout function matches its
+stated rule and is exactly zero-sum. Max floating-point residual across all 20,000
+trials (summed `betsTotal()`, `feesTotal()`, `overall()`): ~5.7e-14 — pure IEEE-754
+noise, far below the app's own 0.005 cent-rounding threshold. `settleDebts()`
+transactions were checked every trial to fully reconstruct each player's rounded net
+balance — zero mismatches.
+
+Specific verifications:
+- **Nassau** (1v1 + 2v2 best-ball, independently toggleable) — front/back/overall
+  segments pay the stake to the segment winner only on a clear win, ties pay
+  nothing, zero-sum per matchup. Matches "match play... head-to-head, or as 2v2
+  teams... both formats can run at once."
+- **Match Play** — running net-hole tally with standard early-close-out
+  (`abs(run)>holesRemaining`) or full 18; matches "lowest net wins each hole; most
+  holes won takes the match."
+- **Wolf** — lone wolf (1v3, win/lose 3×) and partner (2v2 best ball) branches both
+  verified zero-sum and match the stated stake multiplier exactly.
+- **6/6/6** — `s666SegState()` uses `Math.min()` of the two partners' net scores
+  (best-ball), confirmed via a deterministic test built specifically to distinguish
+  best-ball from the old Aug 1 sum-based bug (a hole where best-ball and sum-of-two
+  pick opposite winners) — the fix holds. **But see Finding 1 below** — the Setup
+  screen's description text was never updated to match.
+- **5-3-1** — all four point-distribution branches (no tie, tie-low → 4/4/1, tie-high
+  → 5/2/2, all-tie → 3/3/3) verified against the exact point values shown in Setup;
+  pairwise point-difference settlement is zero-sum.
+- **Par 3 Clock** — uses gross score (`parseInt(GR[cp][hi])`), compliant with
+  Critical Coding Rule #4. Birdie/par/3-putt-bogey branches match the description
+  exactly; a non-3-putt bogey correctly triggers no payment (there's no 4th dollar
+  field for it, and the description never promises one).
+- **Dots / Junk leader-take-all** — hand-verified with a deterministic 4-player
+  scenario (2 tied leaders, 2 trailing players, uneven pot split) matching the exact
+  expected payout to the cent, plus the 20k-trial sweep. **See Finding 2 below.**
+- **Fees** — `feesTotal()` verified zero-sum (payer gets `amt−share`, everyone else
+  `−share`) per Critical Coding Rule #6, across every trial. **See Finding 3 below.**
+- **`migrateRecentRounds()` / `RULE_FLAG`** — traced by hand: correctly limits to
+  rounds saved within the 7-day window, recomputes using the round's OWN saved
+  `state` (scores/handicaps/bet-config as originally played) against the CURRENT
+  code's calc functions (not the globals of whatever round happens to be open —
+  `withSavedState()` swaps and restores globals explicitly), and marks each round
+  with the current `RULE_FLAG` so it's never re-migrated twice under the same flag.
+  Runs both at app boot and again after cloud login (since login replaces `rounds`
+  wholesale with the cloud copy). No bug found.
+
+**Finding 1 — 6/6/6 Setup description is stale, describes the pre-fix behavior.**
+`golf_bet_tracker.html` ~line 1417: `"Combined net score per hole · low team total
+wins hole · most holes wins segment."` "Combined" reads as a sum — which was the
+Aug 1 bug this exact file already documented fixing (see "Real Bugs Found and Fixed,
+Jul 24 – Aug 13, 2026" above). The code is correct (best-ball/lowest-of-two); the
+text was simply never updated after the fix shipped, and has been telling users the
+wrong rule ever since.
+
+**Finding 2 — `BT.junk` carries 6 dead stake fields.**
+`sandy`, `barky`, `polie`, `birdie`, `eagle`, `hio` are all still initialized with
+nonzero defaults (`golf_bet_tracker.html` ~line 108) but never read by
+`junkCalc()`/`junkTotals()`/`junkRate()` — only `val` (the flat per-item rate) and
+`greenie` (legacy fallback for `val`) are live. This confirms the Setup UI's "every
+junk item counts the same" text is accurate and intentional — it's not a payout bug
+— but these 6 fields are genuine dead state. Phase 2's dead-code scan didn't catch
+this because it only checked top-level functions and variables, not object
+properties nested inside `BT`.
+
+**Finding 3 — `feesTotal()` silently no-ops when a fee's payer is also excluded.**
+The "Paid by" dropdown for Round Cost / Booking Fee offers every active player with
+no awareness of the "Exclude from Fees" checkboxes — a user can pick the same
+person for both. When that happens, `feesTotal()`'s `if(paying.indexOf(payer)<0)
+return;` guard skips the entire fee: nobody is charged, the payer isn't reimbursed,
+and the amount the user typed in (e.g. a real $60 round cost) simply has zero effect
+on every ledger view, with no message explaining why. The math still nets to zero
+(nothing charged is still zero-sum), so this isn't a wrong-number bug, but it's a
+silent-no-op UX gap that could look like the app lost data.
+
+**Ross's call (asked after this report):** fix all three in Phase 5, alongside the
+mandatory `_feeSelHtml` closure extraction.
+
+---
+
 ## Known Issues — Unresolved (as of Sep 18, 2026)
 
 Not fixed yet, flagged for prioritization:
