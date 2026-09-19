@@ -54,7 +54,7 @@ any deploy that didn't also get a manual commit alongside it. Now stages both fi
 Everything lives in `golf_bet_tracker.html`. `index.html` is always a copy of it
 (the deploy script does the copy). This was a deliberate MVP choice to avoid build
 tooling. It works but creates maintainability pressure as the file grows —
-**2,129 lines as of Sep 18, 2026**, up from ~1,800 in May.
+**2,185 lines as of Sep 20, 2026**, up from ~1,800 in May.
 
 ### State Model
 All app state is plain JS variables in the global scope:
@@ -75,17 +75,28 @@ rounds[]      saved round objects    — loaded from localStorage on start
 sG[]          saved golfer roster    — persists across rounds
 ```
 
-**`BT{}` sub-shape as of Sep 18, 2026** (grew since the May snapshot — see Feature Log):
+**`BT{}` sub-shape as of Sep 20, 2026** (grew since the May snapshot — see Feature Log):
 - `BT.nassau` — `{on, h2h, teams, mus[], tmus[]}`. `h2h` and `teams` are independent
   on/off flags (added Aug 13); `mus` = 1v1 matchups, `tmus` = 2v2 best-ball matchups
   (added Jul 24).
-- `BT.dots` — `{on, val, fwy, grn}`. `val` = single $-per-dot rate (added Aug 1,
-  replaces the old separate fwy/grn stakes for payout purposes; `fwy`/`grn` are kept
-  only as the legacy fallback value and for the "which action counts as a dot" rule).
-- `BT.junk` — `{on, val, greenie, sandy, barky, polie, birdie, eagle, hio}`. `val` =
-  single $-per-junk-item rate (added Aug 13, same pattern as dots). `birdie`/`eagle`/
-  `hio` are auto-detected from gross score vs. par (added Aug 1); the other four are
-  manually checked.
+- `BT.dots` — `{on, val, fwy}`. `val` = single $-per-dot rate (added Aug 1, replaced
+  the old separate fwy/grn stakes for payout purposes). `fwy` is kept only as the
+  legacy fallback value for `val` on saved rounds that predate it. The old `grn`
+  field was genuine dead weight (never read anywhere) and was removed Sep 18, 2026
+  (7-phase audit, Phase 5).
+- `BT.junk` — `{on, val, greenie}`. `val` = single $-per-junk-item rate (added Aug
+  13, same pattern as dots); `greenie` is kept only as `val`'s legacy fallback.
+  `sandy`/`barky`/`polie`/`birdie`/`eagle`/`hio` were separate per-item stake fields
+  from the pre-Aug-13 payout model — genuine dead weight once the flat-rate model
+  landed, never read anywhere, removed Sep 18, 2026 (Phase 5). Birdie/eagle/hole-in-
+  one are still auto-detected from gross score vs. par (added Aug 1); greenie/sandy/
+  barky/polie are still manually checked — that part didn't change, only the
+  now-unused per-item dollar amounts did.
+- `BT.p3c` — `{on, birdie, par, bogey, carry}`. `carry` (added Sep 20, 2026) is an
+  optional toggle, default `false`: when on, a par-3 with nobody "on the clock"
+  rolls its stake forward until a later par-3 resolves, multiplying that payout by
+  however many holes carried in. Old saved rounds have no `carry` key at all
+  (`undefined` is falsy), so this is a provable no-op unless explicitly turned on.
 
 ### Calculation Pipeline
 ```
@@ -108,6 +119,19 @@ settleDebts() → greedy minimum-transaction settlement algorithm
 `NS()` and `NET()` are memoized (`_nsCache`, `_netCache`) and invalidated via
 `invalidateCalcCache()` at the start of every `render()`.
 
+**Pairwise stroke allocation for 1v1 formats (added Sep 20, 2026).** `NET()`
+allocates every player's strokes relative to the lowest handicap in the whole
+active field, which is correct for group formats (2v2 team Nassau, Wolf, 6/6/6,
+5-3-1) but silently distorted which specific holes a 1v1 matchup's strokes landed
+on whenever a third player's handicap was lower than both players in that matchup
+— total strokes were always right, just not their hole-by-hole distribution, which
+can flip who actually wins a hole. `NETPair(p1i,p2i)` computes net scores for
+exactly two players off only their own two handicaps, and is used by Nassau H2H
+(`nassauHoles()`/`nassauLiveState()`) and Match Play (`matchRun()`, a shared helper
+that replaced four separate duplicated inline tally blocks). See errors.md's Sep
+19-20 entry for the full root cause and the real reported scenario that surfaced
+it.
+
 ### Render Strategy
 Full DOM re-render on almost every state change via `render()`. Exceptions:
 - **Scorecard inputs** use `oninput` + targeted DOM mutation (`setSI`, `updateRowTotals`,
@@ -116,12 +140,6 @@ Full DOM re-render on almost every state change via `render()`. Exceptions:
   Dots, Junk, Par 3 Clock, Wolf — is tagged `data-nav="grid:row:col"`. `gridTab()`
   handles Tab/Shift-Tab across the whole grid without a re-render, replacing the old
   scorecard-only `scTab()`.
-
-**Known rule violation (found Sep 18, 2026):** `_feeSelHtml`, in the Round & Booking
-Fees section of `rResults()`, is a closure defined inside a render function — exactly
-the pattern the Critical Coding Rules below exist to prevent. Low practical risk (it's
-a pure function, captures no mutable render-scoped state) but it's a live violation of
-the project's own rule. Should be extracted to module level.
 
 ### Cloud Sync
 - Login: user enters name + PIN → Worker checks KV → loads profile + rounds
