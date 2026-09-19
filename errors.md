@@ -1074,3 +1074,61 @@ totals happen to check out. Group formats (best-ball teams, Wolf, point
 formats) are the opposite case — those genuinely need one shared reference
 per player, so don't blanket-apply this fix pattern without checking which
 category a given bet type falls into first.
+
+
+---
+
+## Feature — Par 3 Clock Carry-Over (Optional), Sep 20, 2026
+
+**Requested:** Ross reported that when nobody is designated "on the clock" for a
+par-3 hole, the Par 3 Clock stake just evaporates for that hole. He asked for an
+optional toggle so an unclaimed hole's stake rolls forward - as far as necessary -
+until someone is finally back on the clock, at which point the payout is cumulative
+across however many holes carried in.
+
+**What worked:** Added `BT.p3c.carry` (default `false`) and a new `p3cCarryMap()`
+helper that walks the par-3 holes in order and tracks a running carry count: it
+increments only when nobody is on the clock (`cp==null`) for a par-3, and resets to
+0 the moment a hole with someone on the clock actually resolves a payout (birdie,
+par, or 3-putt bogey - a plain bogey with someone on the clock also resets it, since
+per Ross's literal spec the carry condition is specifically "nobody on the clock,"
+not "no money changed hands"). An unresolved hole (someone assigned but score not
+yet entered) is left alone - it neither adds to nor resets the carry, so live
+scoring mid-round doesn't produce flickering carry counts as holes get filled in.
+`p3cCalc()` multiplies whichever birdie/par/bogey rate applies by that hole's carry
+multiplier (carry count + 1) before computing the payout, so N carried holes pay
+(N+1)x stakes on the hole that finally resolves. If the carry is never claimed
+again before the round ends, it's simply never paid - same as a normal skins-style
+carry.
+
+**Verified, not just reasoned through:** extracted `ais()`/`p3cCarryMap()`/
+`p3cCalc()` verbatim from the patched file and ran them under Node (`node
+/tmp/p3c_test.js`, 4 scenarios): (1) carry OFF produces byte-identical output to
+the pre-carry code for a plain single-hole birdie - confirms the default is a true
+no-op for every existing saved round, since old rounds' stored `BT.p3c` has no
+`carry` key at all and `undefined` is falsy; (2) carry ON, two empty par-3s then a
+birdie on the third pays exactly 3x and the carry correctly resets to 1x on the
+next par-3 after that; (3) carry ON, an unresolved hole (assigned but no score
+yet) does not disturb the carry chain building around it; (4) carry ON, carry never
+resolves by the last par-3 - no crash, all payouts stay 0. All four scenarios were
+also checked for exact zero-sum per Critical Coding Rule #6.
+
+**Deliberately NOT a `RULE_FLAG` bump.** Unlike the Aug 1 6/6/6 fix or other rule
+changes that altered math for existing rounds, this is strictly additive and
+opt-in: with `carry:false` (the default, and what every previously-saved round's
+`BT.p3c` implicitly has since the key didn't exist before), `p3cCalc()`'s output is
+provably identical to the pre-change code (see verification above). No existing
+round's numbers change unless a user explicitly turns the new checkbox on for a
+round they're actively scoring.
+
+**UI:** new checkbox in the Par 3 Clock Setup card ("Carry over stakes when
+nobody's on the clock"), wired `onchange` (never `oninput`) per Critical Coding
+Rule #1, with the info text below it switching to describe whichever mode is
+active. The Dots/Junk tab's per-hole Par 3 Clock cards now show a "— carries Nx"
+tag on any hole whose payout, if it resolves, will be multiplied, plus a note on
+empty holes that their stake is rolling forward when carry-over is on.
+
+**Not yet pushed** - committed locally per the Sep 19-20 division-of-labor rule
+(CLAUDE.md, "Where Code Changes Actually Get Committed and Pushed"). Needs
+`phases/SYNC_push_pending_commits.md` run in local Claude Code, same as the
+still-pending Nassau/Match Play fix and the CLAUDE.md/phases update.
