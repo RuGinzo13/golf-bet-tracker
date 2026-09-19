@@ -433,6 +433,25 @@ named rule.
 
 ---
 
+## Session Summary, September 18, 2026 (cont'd) — Phase 5, Fix 2: Stale 6/6/6 Description
+
+**What didn't work:** The 6/6/6 Setup screen's info text read "Combined net score
+per hole" (golf_bet_tracker.html ~line 1421) — "combined" reads as a sum. That was
+the exact wording left over from before the Aug 1, 2026 fix that changed the actual
+scoring from sum-of-two-partners to best-ball (lower of the two). The code was
+correct (confirmed in Phase 4's audit); the text was never updated when the code
+was, so the app had been telling users the wrong rule for the format for six weeks.
+**What worked:** Changed the text to "Best ball: lower of the two partners' net
+scores counts per hole · low team score wins hole · most holes wins segment." — now
+matches `s666SegState()`'s actual `Math.min()` behavior.
+**Note for next time:** when a bet-math bug fix changes what a calc function does,
+grep the Setup screen's description text for that bet type in the same commit — a
+fixed calculation with a stale description is arguably worse than an honest bug,
+since a stale description actively tells the user something false about a rule
+they're trusting for real money settlement.
+
+---
+
 ## Known Issues — Unresolved (as of Sep 18, 2026)
 
 Not fixed yet, flagged for prioritization:
