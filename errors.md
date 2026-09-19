@@ -408,6 +408,31 @@ mandatory `_feeSelHtml` closure extraction.
 
 ---
 
+## Session Summary, September 18, 2026 (cont'd) — Phase 5, Fix 1: Closures in Render Functions
+
+**What didn't work:** `_feeSelHtml` (Round & Booking Fees section of `rResults()`)
+was a closure defined inside a render function — exactly the pattern Bug 5 fixed in
+May, re-introduced since. Grepping the whole file for the same pattern (a `function`
+declared inside a top-level `function r*(){...}` render function) while in there, per
+this phase's instructions, turned up a **second, previously-unflagged instance**:
+`flowArrow(fr,to,amt,color)` inside `rFlow()`, re-created on every Money Flow tab
+render.
+**What worked:** Extracted both to module level next to `mkBetCard`/`mkBalGrid`/
+`mkSettleTxns` (golf_bet_tracker.html "Module-level helpers" section). `flowArrow`
+needed no interface change — it only ever depended on its own params plus the
+already-module-level `pn()`/`amt$()`. `_feeSelHtml` was renamed to `feeSelHtml` and
+now takes the active-player list `a` as an explicit third parameter instead of
+closing over it; the two call sites in `rResults()` were updated to pass `a`
+through. No behavior change in this fix — `_selStyle`, a var that existed solely to
+feed the closure, was inlined into the extracted function and removed.
+**Note for next time:** the grep pattern that found both (`function r[A-Z]` as the
+outer boundary, looking for a nested `  function name(` at any depth inside it)
+should be re-run any time a new render function or render-section is added — this is
+the second time this exact violation has recurred despite being called out as a
+named rule.
+
+---
+
 ## Known Issues — Unresolved (as of Sep 18, 2026)
 
 Not fixed yet, flagged for prioritization:
