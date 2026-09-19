@@ -177,8 +177,8 @@ Before every change, follow these steps:
   working. Cloud sync is live in production for the first time since it was built
   May 11 2026. See errors.md Known Issues #9 / Phase 8 for the 3-attempt incident
   history (wrong account ID, then a Cloudflare API token that was never actually
-  saved). Still to verify: whether `GCAPI_KEY` survived the redeploy (test course
-  search in the app).
+  saved). `GCAPI_KEY` confirmed to have survived the redeploy — `GET /search`
+  tested live and returns real course data.
 - Single file at 2,130 lines (Sep 18 2026, up from ~1,800 in May) — no module system.
   Use consistent comment headers (`// ── Section name ──`) and never define closures
   inside render functions.

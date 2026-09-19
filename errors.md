@@ -826,10 +826,52 @@ first fix wasn't the (whole) cause, not a signal to retry the same fix harder.
 Worth then checking the other credential in the pair, not just re-verifying the one
 already changed.
 
-**Still open, not yet verified:** whether `GCAPI_KEY` (the golfcourseapi.com secret)
-survived across this redeploy — Worker secrets are independent of code deploys and
-should persist, but this account's state has already surprised us twice this week
-(zero KV namespaces despite an apparently-running Worker; a token that looked saved
-but wasn't). Confirm by testing course search in the app's Setup tab, and ideally a
-real login/sync round-trip too, not just `/health`.
+**Resolved Sep 19, 2026 (later same day):** `GCAPI_KEY` confirmed to have survived
+the redeploy — tested `GET /search?q=pebble` live and got real course results back,
+not a 503. All three of Phase 6's original cloud-sync checks were also independently
+re-verified live in a separate session: `GET /health` → `{"status":"ok","sync":true}`,
+`POST /sync/save` → `{"saved":true}` (200, not 405), `GET /sync/load` → the exact
+data just saved (200, not 404). **This closes out Phase 6 item 8 for good** — the
+original end-to-end test failure from Sep 18 is fully resolved and independently
+confirmed, not just reported fixed.
+
+---
+
+## Session Summary, September 19, 2026 — pickCourse() Always Threw on Real Results
+
+**What didn't work:** `pickCourse()` read
+`var data=courseCache[id]||await apiFetch('/course/'+encodeURIComponent(id));`.
+`courseCache[id]` is unconditionally populated by `csSearch()` for every search
+result *before* a user ever clicks one, so by the time `pickCourse()` ran, the left
+side of `||` was always truthy — the `apiFetch(...)` on the right side never
+evaluated at all. `data` was always the *search-result snippet* (e.g.
+`{id, club_name, location, tees:{male:3,female:3}}` — `tees.male`/`tees.female` are
+plain **counts** from `/search`), never the full course detail
+(`tees.male`/`tees.female` are **arrays** of tee-set objects, only from
+`/course/:id`). `extractTees()` only knows how to read the array shape, so it always
+returned `[]` for the snippet, tripping `if(!sets.length)throw new Error('No
+scorecard data in response')`. **Every course selection from search results has been
+throwing this error** — confirmed via `git log -p` that this predates the current
+session entirely (present in the very first commit of `golf_bet_tracker.html`),
+so this is not a regression from any recent work, just a bug nobody had traced
+before. Found because Ross pointed directly at the caching line and the comment in
+`pickCourse()`, not found by this session's earlier 7-phase audit (which scoped to
+bet-math correctness, not the course-search feature).
+**What worked:** Only treat `courseCache[id]` as a real cache hit if
+`extractTees()` can actually produce tee sets from it. If not (which is always true
+right after a search), fetch the real detail via `apiFetch()` and overwrite
+`courseCache[id]` with that — *now* the cache is genuinely useful for a second pick
+of the same course within the same session. Verified against the live Worker with a
+before/after test: old code throws `No scorecard data in response` on every attempt;
+new code correctly fetches on the first pick (6 real tee sets returned for a real
+course) and hits a true cache with zero extra fetch on a repeat pick of the same
+course.
+**Note for next time:** a cache keyed by the same ID across two API responses with
+different shapes (list-summary vs. single-detail) needs the read side to verify the
+cached value is actually usable for what's about to be done with it — `if(cached)`
+is not the same check as `if(cached is the shape I need)`. This is the same category
+of bug as `feesTotal()`'s payer/exclude conflict from Phase 4: a `||`/ternary
+fallback that looks like a safe default but silently produces the wrong branch under
+a real, common input shape. Worth grepping for other `X||await fetch(...)` or
+`cached ? ... : []` patterns in this file for the same mistake.
 
