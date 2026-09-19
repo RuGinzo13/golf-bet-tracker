@@ -156,3 +156,63 @@ comes before verification (calc correctness) comes before new work.
 **What was rejected:** Jumping straight into product roadmap work (claim-later,
 premium gate, etc.) without first confirming the existing MVP's math and
 infrastructure are sound — that's how three more months of undocumented drift happens.
+
+---
+
+## Session Summary, September 18, 2026 — 7-Phase Audit Executed (Phases 1–7)
+
+**Worked on:** Ran the full 7-phase audit decided above, across two sittings ("run
+phase 1-3" then "run phase 4-7 sequentially"). Full detail in errors.md; condensed
+version in summary.md's Sep 18 Feature Log entry.
+
+**Completed:**
+- Phase 1: got `golf_bet_tracker.html` and every `.md` doc under git for the first
+  time ever; cleared a stale `.git/index.lock`.
+- Phase 2: removed the exposed API key + its dead fallback code path, and `doReset()`
+  (a sign-out handler never wired to any UI element — confirmed with Ross before
+  deleting).
+- Phase 3: audited `/sync/save`/`/sync/load` and `sw.js` — documented real security
+  gaps (open CORS, no PIN rate limiting, unsalted hash) and cache-staleness risk,
+  neither fixed yet (deliberately audit-only).
+- Phase 4: verified all 10 bet-calc/settlement functions against their stated rules
+  via hand-tracing plus a 20,000-trial randomized zero-sum test (run through
+  `osascript -l JavaScript` since no Node was available). **No money-math bugs** —
+  found 3 adjacent issues instead (stale 6/6/6 description, dead `BT.junk` stake
+  fields, a fee/exclude silent no-op).
+- Phase 5: fixed all 3 Phase 4 findings (Ross chose "fix all 3" when asked) plus the
+  `_feeSelHtml` closure violation and a second instance found in the same grep
+  (`flowArrow`) — 4 separate commits.
+- Phase 6: ran the real save/load/calc code against stubbed storage (steps 1–7 of
+  the checklist, all pass) and tested cloud sync against the actual live Worker
+  (step 8). **Found the live Worker doesn't match the repo's `golf_proxy_worker.js`
+  at all** — it's missing `/sync/save`/`/sync/load` entirely, meaning cloud sync has
+  likely never worked in production since it shipped May 11. Confirmed Claude Code
+  has no path to redeploy it (no wrangler/API token/authorized connector). Asked
+  Ross how to proceed; he asked me to try the redeploy and fall back to noting it if
+  I couldn't — I couldn't, so it's logged as the top item in errors.md Known Issues.
+- Phase 7: this entry, plus dated entries in summary.md/errors.md and an updated
+  CLAUDE.md Known Architectural Debt list (removed resolved items, added the Worker
+  deploy gap).
+
+**Decisions made:**
+- When Phase 4/5's gate ("human must review before fixing money-math findings")
+  came up, asked Ross via a scoped question rather than either fixing everything
+  unilaterally or blocking entirely — he chose "fix all 3." Worth repeating this
+  pattern: audit phases that explicitly call for human judgment on real bugs get a
+  quick check-in even under a "run phases N-M" blanket instruction; mechanical
+  phases (audits that found nothing, or pure doc updates) don't.
+- Did not attempt the Cloudflare Worker redeploy via guesswork or ask Ross for
+  credentials/tokens — confirmed no available path first, then reported that
+  clearly rather than either faking progress or stalling on it.
+
+**In progress / next session:**
+- **Top priority: redeploy `golf_proxy_worker.js` via the Cloudflare dashboard.**
+  Nothing else in this project is currently broken for users the way this is.
+- Everything else flagged in errors.md's Known Issues list (as of this session:
+  Worker redeploy, `/sync` security gaps, `migrateRecentRounds()` 7-day window,
+  Dots/Junk changelog gap, PWA icons, KV conflict resolution, no sign-out UI,
+  `deploy.sh` not `git add`ing `golf_bet_tracker.html`) is a candidate for a future
+  cleanup session — none of it is money-math-correctness-critical the way the
+  original 7-phase decision was concerned about, since Phase 4 came back clean.
+- No roadmap work (claim-later, premium gate, Supabase rebuild) started — this
+  audit was explicitly meant to happen before that, not instead of it.

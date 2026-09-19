@@ -40,7 +40,7 @@ GolfBetting/
 ├── CONTEXT_UPDATE.md          # Product vision, market research, roadmap (split out of summary.md Sep 18 2026)
 ├── MEMORY.md                  # Decision log
 ├── errors.md                  # All bugs, failed approaches, lessons learned
-├── golf_bet_tracker.html      # Source of truth — all app code (2,129 lines as of Sep 18 2026)
+├── golf_bet_tracker.html      # Source of truth — all app code (2,130 lines as of Sep 18 2026)
 ├── index.html                 # Copy of above — served by GitHub Pages
 ├── manifest.json              # PWA manifest
 ├── sw.js                      # Service worker (cache-first)
@@ -53,11 +53,9 @@ GolfBetting/
 **`golf_bet_tracker.html` is the only file that contains app logic.**
 `index.html` is always a copy. Never edit `index.html` directly.
 
-**Nothing in this list except `index.html`, `golf_proxy_worker.js`, `icon.svg`,
-`manifest.json`, and `sw.js` is actually committed to git** — `golf_bet_tracker.html`
-included. Confirmed via `git status` Sep 18, 2026: every `.md` doc and the source HTML
-sit permanently staged as "new file," never committed. This is the single biggest
-operational risk in this project right now — see errors.md "Known Issues."
+**Resolved Sep 18, 2026 (7-phase audit, Phase 1):** everything in this list is now
+committed to git — `golf_bet_tracker.html` and every `.md` doc had never been
+committed before this session; see errors.md "Known Issues" #1 for the fix.
 
 ---
 
@@ -120,9 +118,9 @@ These are learned from real bugs. Violating them will break the app.
 
 2. **Never define helper functions inside `rResults()` or any render function.**
    Define them at module level and pass dependencies explicitly. See errors.md Bug 5.
-   **This rule is currently being violated** — `_feeSelHtml` inside the Round & Booking
-   Fees section of `rResults()` is exactly this pattern (found Sep 18 2026, not yet
-   fixed). Extract it before adding anything else to that section.
+   Violated twice since (`_feeSelHtml` in `rResults()`, `flowArrow` in `rFlow()`) —
+   both fixed Sep 18 2026 (7-phase audit, Phase 5). Grep for a nested `function`
+   inside any top-level `function r*(){...}` before adding to a render function.
 
 3. **Always use `ais()` (active player index list) when iterating players.**
    Never assume players are indices 0–3. Only active players are in `ais()`.
@@ -160,7 +158,14 @@ Before every change, follow these steps:
 
 ## Known Architectural Debt
 
-- Single file at 2,129 lines (Sep 18 2026, up from ~1,800 in May) — no module system.
+- **Live Cloudflare Worker does not match `golf_proxy_worker.js` in this repo —
+  cloud sync is non-functional in production.** Found Sep 18 2026 (7-phase audit,
+  Phase 6): the deployed Worker predates the `/sync/save`/`/sync/load` routes added
+  May 11 2026 — every login silently falls back to local-only with a misleading
+  "will sync when reconnected" message. Fix is a Cloudflare dashboard redeploy
+  (Ross-only — Claude Code has no `wrangler`/API-token/connector path to do this).
+  See errors.md Known Issues #9 for the full evidence and redeploy steps.
+- Single file at 2,130 lines (Sep 18 2026, up from ~1,800 in May) — no module system.
   Use consistent comment headers (`// ── Section name ──`) and never define closures
   inside render functions.
 - Cloudflare KV is last-write-wins. No conflict resolution for simultaneous edits
@@ -168,14 +173,16 @@ Before every change, follow these steps:
 - PWA icons: `manifest.json` references `icon-192.png` and `icon-512.png` but only
   `icon.svg` exists. Rasterized PNGs not yet generated (still true Sep 18 2026).
 - KV namespace `GOLF_SYNC` must be manually bound in Cloudflare dashboard before
-  cloud sync works. App degrades gracefully to local-only if not configured.
-- `golf_bet_tracker.html` hardcodes the golfcourseapi.com key in plaintext as an
-  unused fallback (line ~95) — dead code, but a real secret sitting in public source.
+  cloud sync works (separate from the redeploy above — check both after redeploying).
+  App degrades gracefully to local-only if not configured.
 - `migrateRecentRounds()` only re-scores rounds saved in the last 7 days when a bet
   rule changes; older rounds are frozen on whatever math they were originally scored
   with, permanently, with no manual recompute option.
-- `_feeSelHtml` (in `rResults()`) is a closure defined inside a render function —
-  the exact pattern Critical Coding Rule #2 prohibits. Found Sep 18 2026, not fixed.
+- `/sync/save`/`/sync/load` on the Worker have real security gaps once redeployed:
+  CORS wide open (`*`), no rate limiting on PIN attempts, unsalted SHA-256 PIN hash.
+  Documented but not fixed (7-phase audit Phase 3) — see errors.md.
+- No sign-out/switch-profile UI. A `doReset()` function existed but was never wired
+  to a button; removed as dead code Sep 18 2026 (Phase 2) rather than left unreachable.
 
 ---
 

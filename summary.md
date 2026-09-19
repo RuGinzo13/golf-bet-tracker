@@ -36,13 +36,15 @@ cd "path/to/GolfBetting"
 The Cloudflare Worker must be deployed separately via the Cloudflare dashboard
 (paste `golf_proxy_worker.js` into the editor and Save & Deploy).
 
-**Known gap (confirmed Sep 18, 2026):** `deploy.sh` only ever `git add`s `index.html`.
-`golf_bet_tracker.html` itself — the file CLAUDE.md calls "the only file that contains
-app logic" — along with every `.md` doc, has never once been committed. `git status`
-shows them permanently staged as "new file" with zero commit history. Only
-`index.html`, `golf_proxy_worker.js`, `icon.svg`, `manifest.json`, and `sw.js` exist in
-any commit. If this machine is lost, the actual editable source and every doc goes with
-it; only the already-built `index.html` survives on GitHub Pages. See errors.md.
+**Resolved Sep 18, 2026 (7-phase audit, Phase 1):** `golf_bet_tracker.html` and every
+`.md` doc — previously never committed at all — are now under version control.
+**Still true:** `deploy.sh` itself only ever `git add`s `index.html` on each run. This
+session's fixes to `golf_bet_tracker.html` were committed manually alongside it each
+time, not via `deploy.sh`. Any future edit to `golf_bet_tracker.html` that only goes
+through `./deploy.sh` will still leave the source file's latest version uncommitted
+relative to `index.html` — the script would need to `git add golf_bet_tracker.html`
+too to close this gap for good. Not fixed this session (out of the audit's scope; a
+one-line change to `deploy.sh` whenever Ross wants it).
 
 ---
 
@@ -221,6 +223,9 @@ together whenever configured — no independent on/off (that came Aug 13).
   fix was silently rounded to a whole dollar in the ledger.
 - Junk gained auto-detected birdie/eagle/hole-in-one bonuses, computed off gross score
   vs. par (no manual checkbox needed) — new `BT.junk.birdie/eagle/hio` stakes.
+  (These per-item stake fields, plus `sandy`/`barky`/`polie`, became dead weight once
+  Aug 13's leader-take-all rewrite made every junk item worth the same flat rate —
+  removed Sep 18, 2026; see the 7-phase audit entry below.)
 - 6/6/6 got a live in-progress tracker (`build666LiveHtml`/`update666Live`), matching
   the live views Nassau and Wolf already had.
 - **Dots payout model rewritten.** Old model: every fairway-hit/GIR dot paid its flat
@@ -251,13 +256,72 @@ Clock selects, and Wolf decision buttons — not just score entry.
   (`nassauH2HOn()`/`nassauTeamsOn()`), so a group can run 2v2-only or 1v1-only without
   the other format silently taking money too.
 
+### September 18, 2026 — 7-Phase Stale/Dead-Code/Calculation Audit
+
+Before any new feature work, ran a 7-phase cleanup pass (decided and logged in
+MEMORY.md) to verify the codebase and infrastructure this whole project rests on
+before building further on top of it. Full detail for every phase is in errors.md;
+this is the condensed version.
+
+**Phase 1 — Repo hygiene.** Cleared a stale `.git/index.lock`. Confirmed
+`golf_bet_tracker.html` and every `.md` doc had genuinely never been committed since
+project start — committed all of it in one commit, added `.gitignore`.
+
+**Phase 2 — Dead code & exposed secret.** Removed the plaintext `API_KEY`/`API_BASE`
+fallback and the direct-fetch branch in `apiFetch()` — course search now only goes
+through the Worker proxy. Removed `doReset()`, a sign-out handler that was never
+wired to any UI element (the app currently has no sign-out UI at all as a result —
+flagged, not rebuilt, since that's a feature decision not a cleanup one).
+
+**Phase 3 — API & sync audit.** Confirmed the golfcourseapi.com route shape is still
+current. Documented real security gaps in `/sync/save`/`/sync/load` (open CORS, no
+PIN rate limiting, unsalted SHA-256 hash) and the `sw.js` cache-first staleness risk
+(a bet-rule fix may not reach a user until their second visit after a deploy) —
+neither fixed yet, both logged for a future session.
+
+**Phase 4 — Calculation correctness audit.** Traced all 10 calc/settlement functions
+against their stated Setup rules and verified zero-sum with a 20,000-trial randomized
+test plus hand-checked scenarios. **No money-math bugs found** — the Aug 1 6/6/6
+best-ball fix and the Aug 1/13 Dots/Junk leader-take-all model both hold up. Found
+three adjacent issues instead: a stale 6/6/6 description that still said "combined"
+(sum) when the code had already been fixed to best-ball; six dead `BT.junk` stake
+fields (`sandy`/`barky`/`polie`/`birdie`/`eagle`/`hio`, superseded by the Aug 13
+flat-rate model but never removed); and `feesTotal()` silently no-opping a fee when
+its payer was also marked excluded.
+
+**Phase 5 — Fixes.** All three Phase 4 findings fixed, plus the `_feeSelHtml`
+closure-in-render violation (Critical Coding Rule #2) — and a second, previously
+unflagged instance of the same violation, `flowArrow` inside `rFlow()`, found by
+grepping the whole file for the pattern while in there. The fee/exclude conflict is
+now structurally prevented (excluded players are filtered out of the payer dropdown,
+and excluding someone who's currently a payer clears the payer field) rather than
+just silently absorbed.
+
+**Phase 6 — End-to-end flow test.** No browser automation was available, so this ran
+the real extracted save/load/calc code (not a reimplementation, not a pure trace)
+against stubbed storage via a system JS engine. Setup → scoring (incl. edge cases:
+an ace on a non-par-3 hole, an eagle-that's-also-an-ace on a par 3, a 3-putt bogey) →
+save → reload → reopen-and-re-edit all passed. **Cloud login/sync did not** — the
+live Cloudflare Worker was found to be running code from before cloud sync shipped
+(missing `/sync/save`/`/sync/load` entirely), meaning cross-device sync has likely
+never worked in production since the May 11, 2026 feature shipped. This isn't a code
+bug — the repo's `golf_proxy_worker.js` is correct — it's a deploy gap that requires
+a Cloudflare dashboard redeploy Ross has to do manually.
+
+**Net result:** the core betting math was already correct going into this audit and
+remains correct — nothing here changed how any bet is scored. What changed is
+everything *around* the math: the codebase is now actually version-controlled, one
+exposed secret and several pieces of dead code/config are gone, two architecture-rule
+violations are fixed, and a real (if not code-level) production gap in cloud sync was
+found that had gone completely undetected.
+
 ---
 
 ## Current File Structure
 
 ```
 GolfBetting/
-├── golf_bet_tracker.html   # Source of truth — all app code (2,129 lines, Sep 18 2026)
+├── golf_bet_tracker.html   # Source of truth — all app code (2,130 lines, Sep 18 2026)
 ├── index.html              # Copy of above — served by GitHub Pages
 ├── manifest.json           # PWA manifest
 ├── sw.js                   # Service worker (cache-first, v3)
@@ -273,31 +337,33 @@ GolfBetting/
                                # this content used to live (mislabeled) in this file; see errors.md)
 ```
 
-**Only `index.html`, `golf_proxy_worker.js`, `icon.svg`, `manifest.json`, and `sw.js`
-are actually committed to git.** Everything else, including `golf_bet_tracker.html`
-itself, is uncommitted. See "Deployment" above and errors.md.
+**Resolved Sep 18, 2026 (7-phase audit, Phase 1):** every file above is now committed
+to git. Previously only `index.html`, `golf_proxy_worker.js`, `icon.svg`,
+`manifest.json`, and `sw.js` were.
 
 ---
 
-## Known Pending Items (updated Sep 18, 2026)
+## Known Pending Items (updated Sep 18, 2026, after the 7-phase audit)
 
-- Cloudflare KV namespace binding must be done manually in dashboard before cloud sync works
+- **Live Cloudflare Worker doesn't match `golf_proxy_worker.js` — cloud sync has
+  never actually worked in production.** Found in the audit's Phase 6. Requires a
+  manual Cloudflare dashboard redeploy from Ross; see errors.md Known Issues #9.
+- Cloudflare KV namespace binding must be done manually in dashboard before cloud
+  sync works — separate check from the redeploy above, do both.
 - No HCP field on the new login screen — new users default to HCP 10 and update in Setup
 - Full round state (scorecards) is included in cloud sync but not in any URL-based fallback
 - No conflict resolution if same profile is edited on two devices simultaneously (last write wins)
 - PWA icon is SVG only; `icon-192.png` and `icon-512.png` referenced in manifest but
   **still not generated as of Sep 18, 2026** — confirmed not on disk. Flagged in May, never done.
-- **`golf_bet_tracker.html` and every `.md` doc have never been committed to git** — see Deployment above.
-- **Dead API key exposed in public source.** `golf_bet_tracker.html` hardcodes the
-  golfcourseapi.com key in plaintext as a fallback path (line ~95). Not currently
-  exercised — `PROXY_URL` is set, so the Worker path always wins — but the key still
-  sits in a public GitHub Pages repo and its git history. Remove or rotate.
+- `/sync/save`/`/sync/load` security gaps once the Worker is redeployed: CORS wide
+  open, no PIN rate limiting, unsalted SHA-256 hash. Documented, not fixed.
 - **`migrateRecentRounds()` only fixes rounds saved in the last 7 days** — see
   Architecture section above. No user-facing way to force-recompute an older round.
 - **Dots and Junk payout math changed twice (Aug 1, Aug 13) with no user-facing
   changelog.** Anyone comparing an old settled round to a new one for these two bet
   types will see numbers computed under a completely different rule and won't know why.
-- `_feeSelHtml` closure-inside-render violation — see Architecture section above.
+- No sign-out/switch-profile UI (removed as unreachable dead code in the audit rather
+  than left half-wired — needs to be built, not restored).
 - Zero progress on the product roadmap (claim-later, premium gate, season stats,
-  Supabase/real-time backend, live dashboard) — see CONTEXT_UPDATE.md. All Jul–Aug work
-  was bug fixes and UX polish on the existing MVP.
+  Supabase/real-time backend, live dashboard) — see CONTEXT_UPDATE.md. All work since
+  May has been bug fixes, UX polish, and this audit — no roadmap movement yet.
