@@ -1,7 +1,7 @@
 name = "golf-proxy"
 main = "golf_proxy_worker.js"
 compatibility_date = "2026-09-19"
-account_id = "b8dd155df0654dea955956e9ad70203f"
+account_id = "bb148aa0b9c81b62e22cd305050d8810"
 
 [[kv_namespaces]]
 binding = "GOLF_SYNC"

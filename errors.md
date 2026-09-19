@@ -746,3 +746,47 @@ since the account showed zero KV namespaces despite the Worker apparently having
 run since April, so nothing about this Worker's config should be assumed intact
 without checking.
 
+---
+
+## Session Summary, September 19, 2026 (cont'd) — Phase 8 First Deploy Attempt Failed: Wrong Account ID
+
+Ross completed the 3 setup steps (workflow file via GitHub web UI, Cloudflare API
+token, both GitHub secrets) and ran the verification prompt. Both the initial
+workflow-file-add push and the verification-comment push triggered `Deploy Cloudflare
+Worker`, and both failed in ~19s at the "Deploy to Cloudflare" step.
+
+**What didn't work:** `wrangler.toml`'s `account_id` (`b8dd155df0654dea955956e9ad70203f`)
+was wrong. It was sourced from the Cloudflare Developer Platform MCP connector's
+`workers_get_worker` call, which returns a field simply labeled `id` next to the
+Worker's name — this was wrongly assumed to be the Cloudflare account ID. It is not
+(most likely the Worker's own internal resource ID). The connector has no tool that
+lists or confirms an account ID directly, so this couldn't be caught before a real
+deploy was attempted. Confirmed via the actual GitHub Actions log (pulled through the
+GitHub REST API using the repo's existing push-token, since `gh` CLI isn't installed
+locally and the log's real content lives behind a redirect to Azure blob storage that
+this environment's network policy blocks by default):
+```
+ERROR   A request to the Cloudflare API (/accounts/***/workers/services/golf-proxy) failed.
+Authentication failed (status: 400) [code: 9106]
+```
+Also confirmed independently, directly against the live Worker via the Cloudflare
+connector (`workers_get_worker_code`), that no deploy had actually happened — the
+live code was still byte-identical to the original April 26, 2026 version.
+
+**What worked:** Ross pulled the real Account ID from the Cloudflare dashboard sidebar
+(`bb148aa0b9c81b62e22cd305050d8810`) and confirmed it differs from what was in
+`wrangler.toml`. Corrected `wrangler.toml` to the real value. **Still needs Ross to
+also update the `CLOUDFLARE_ACCOUNT_ID` GitHub repo secret** to
+`bb148aa0b9c81b62e22cd305050d8810` — it was set to the same wrong value originally,
+since both `wrangler.toml` and the GitHub secret were populated from the same bad
+source. Once both match the real account ID, re-trigger the workflow (a push touching
+`golf_proxy_worker.js` or `wrangler.toml`, or a manual `workflow_dispatch` run).
+
+**Note for next time:** don't treat an unlabeled `id` field from an API/connector as a
+specific ID type (account vs. resource vs. script) without the field name or docs
+confirming which — different Cloudflare resource types return different ID
+namespaces that are easy to conflate, and they're all 32-char hex strings so nothing
+about the value itself signals which kind it is. When a durable config value can be
+grabbed from the account owner's own dashboard in 10 seconds, that's a more reliable
+source than inferring it from a tool call, even when the tool call succeeds.
+
