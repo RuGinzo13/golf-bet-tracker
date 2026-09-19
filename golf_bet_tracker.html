@@ -658,10 +658,26 @@ function flowArrow(fr,to,amt,color){
   h2+='</div>';
   return h2;
 }
-function feeSelHtml(field,val,a){
+function feeSelHtml(field,val,a,excl){
+  // Players excluded from fees can't be picked as payer either — an excluded
+  // payer would make feesTotal() skip the whole fee silently (nobody charged,
+  // payer not reimbursed), which looked like the app lost the fee.
+  var opts=a.filter(function(i){return(excl||[]).indexOf(i)<0;});
   var o='<option value="-1"'+(val==null?' selected':'')+'>— nobody —</option>';
-  a.forEach(function(i){o+='<option value="'+i+'"'+(val===i?' selected':'')+'>'+pn(i)+'</option>';});
+  opts.forEach(function(i){o+='<option value="'+i+'"'+(val===i?' selected':'')+'>'+pn(i)+'</option>';});
   return '<select style="padding:5px 6px;border-radius:5px;background:#001a0e;border:1px solid #1a4028;color:#f5edd5;font-size:12px;min-width:120px" onchange="RF.'+field+'=(+this.value===-1?null:+this.value);render()">'+o+'</select>';
+}
+function toggleFeeExclude(i){
+  var ex=RF.feeExclude||[],ix=ex.indexOf(i);
+  if(ix<0){
+    ex.push(i);
+    // Clear the player from payer fields too — an excluded payer is a silent no-op.
+    if(RF.roundPayer===i)RF.roundPayer=null;
+    if(RF.bookPayer===i)RF.bookPayer=null;
+  }else{
+    ex.splice(ix,1);
+  }
+  RF.feeExclude=ex;render();
 }
 function buildShareText(){
   var a=ais(),net=NET();
@@ -1790,7 +1806,7 @@ function rResults(){
   var _rAmt=+(RF.roundAmt)||0, _bAmt=+(RF.bookAmt)||0;
   h+='<div style="display:grid;grid-template-columns:auto 1fr 1fr auto;align-items:center;gap:10px 14px;margin-bottom:10px;padding:12px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
   h+='<div style="font-size:11px;font-weight:700;color:#c9991e;white-space:nowrap">Round Cost</div>';
-  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90;white-space:nowrap">Paid by</span>'+feeSelHtml('roundPayer',RF.roundPayer,a)+'</div>';
+  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90;white-space:nowrap">Paid by</span>'+feeSelHtml('roundPayer',RF.roundPayer,a,_excl)+'</div>';
   h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">$</span>';
   h+='<input type="number" min="0" step="1" value="'+(_rAmt||'')+'" placeholder="0.00" style="'+_inpStyle+'" onchange="RF.roundAmt=+this.value||0;render()"></div>';
   h+=RF.roundPayer!=null&&_rAmt>0&&_rp.length>0?'<div style="font-size:10px;color:#4a7050;white-space:nowrap">$'+(_rAmt/_rp.length).toFixed(2)+'/ea &times;'+_rp.length+'</div>':'<div></div>';
@@ -1799,7 +1815,7 @@ function rResults(){
   // Booking fee row
   h+='<div style="display:grid;grid-template-columns:auto 1fr 1fr auto;align-items:center;gap:10px 14px;margin-bottom:14px;padding:12px;background:rgba(0,40,16,.5);border-radius:6px;border:1px solid #0f2e18">';
   h+='<div style="font-size:11px;font-weight:700;color:#c9991e;white-space:nowrap">Booking Fee</div>';
-  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90;white-space:nowrap">Paid by</span>'+feeSelHtml('bookPayer',RF.bookPayer,a)+'</div>';
+  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90;white-space:nowrap">Paid by</span>'+feeSelHtml('bookPayer',RF.bookPayer,a,_excl)+'</div>';
   h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#7acc90">$</span>';
   h+='<input type="number" min="0" step="1" value="'+(_bAmt||'')+'" placeholder="0.00" style="'+_inpStyle+'" onchange="RF.bookAmt=+this.value||0;render()"></div>';
   h+=RF.bookPayer!=null&&_bAmt>0&&_rp.length>0?'<div style="font-size:10px;color:#4a7050;white-space:nowrap">$'+(_bAmt/_rp.length).toFixed(2)+'/ea &times;'+_rp.length+'</div>':'<div></div>';
@@ -1813,7 +1829,7 @@ function rResults(){
     a.forEach(function(i){
       var chk=_excl.indexOf(i)>=0;
       h+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:'+(chk?'#c9991e':'#b8d8c0')+';cursor:pointer;font-weight:'+(chk?'700':'400')+'">';
-      h+='<input type="checkbox"'+(chk?' checked':'')+' onchange="var ex=RF.feeExclude||[];var ix=ex.indexOf('+i+');if(this.checked){if(ix<0)ex.push('+i+');}else{if(ix>=0)ex.splice(ix,1);}RF.feeExclude=ex;render()" style="accent-color:#c9991e;width:15px;height:15px">';
+      h+='<input type="checkbox"'+(chk?' checked':'')+' onchange="toggleFeeExclude('+i+')" style="accent-color:#c9991e;width:15px;height:15px">';
       h+=pn(i)+'</label>';
     });
     h+='</div></div>';

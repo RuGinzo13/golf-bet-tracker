@@ -476,6 +476,35 @@ every top-level state object for read-sites" to the dead-code checklist next tim
 
 ---
 
+## Session Summary, September 18, 2026 (cont'd) — Phase 5, Fix 4: Fee Payer/Exclude Conflict
+
+**What didn't work:** The "Paid by" dropdown for Round Cost and Booking Fee offered
+every active player as an option with no awareness of the "Exclude from Fees"
+checkboxes, and the checkbox handler didn't check the payer fields either. A user
+could pick someone as payer and then also mark them excluded (or the reverse order),
+landing `RF` in a state where `feesTotal()`'s `if(paying.indexOf(payer)<0)return;`
+guard silently skipped the entire fee — nobody charged, payer not reimbursed, the
+dollar amount the user typed just had zero effect on every ledger view with no
+explanation.
+**What worked:** Made the conflict unreachable from the UI in both directions —
+`feeSelHtml()` (already extracted to module level in Fix 1) now takes the exclude
+list and filters excluded players out of the payer options entirely; the "Exclude
+from Fees" checkbox handler was pulled out of its inline `onchange` string into a
+new module-level `toggleFeeExclude(i)` that also clears `RF.roundPayer`/
+`RF.bookPayer` if the player being excluded was currently set as either payer.
+`feesTotal()`'s existing skip-guard was left in place (not removed) — it's still the
+correct defensive fallback for any old saved round from before this fix that has the
+conflicting state baked into its stored `state`.
+**Note for next time:** verified with a scratch test (not just reasoning) — excluding
+a payer live now clears the payer field and removes them from the dropdown; excluding
+first then trying to pick them as payer isn't offered as an option at all. The old
+"stale saved round" case was also tested directly against `feesTotal()` and confirmed
+it still degrades to a safe zero-sum no-op rather than crashing.
+
+**This closes out the 3 Phase 4 findings + the closure violation — Phase 5 complete.**
+
+---
+
 ## Known Issues — Unresolved (as of Sep 18, 2026)
 
 Not fixed yet, flagged for prioritization:
