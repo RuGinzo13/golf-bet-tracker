@@ -1129,8 +1129,13 @@ async function pickCourse(id,rawName){
   var statusEl=document.getElementById('cs-status');
   if(statusEl){statusEl.textContent='Loading scorecard...';statusEl.style.color='#4a7050';}
   try{
-    var data=courseCache[id]||await apiFetch('/course/'+encodeURIComponent(id));
-    var sets=extractTees(data);
+    var cached=courseCache[id];
+    var sets=cached?extractTees(cached):[];
+    if(!sets.length){
+      var data=await apiFetch('/course/'+encodeURIComponent(id));
+      courseCache[id]=data; // cache the FULL course detail, not the search snippet
+      sets=extractTees(data);
+    }
     if(!sets.length)throw new Error('No scorecard data in response');
     courseTeeSets=sets;
     // Auto-pick: first male tee whose name matches common middle-tee keywords, else middle index
